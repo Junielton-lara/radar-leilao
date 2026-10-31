@@ -41,6 +41,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.api
     image: lancex-api:${LANCEX_IMAGE_TAG:-latest}
+    pull_policy: build
     restart: unless-stopped
     depends_on:
       postgres:

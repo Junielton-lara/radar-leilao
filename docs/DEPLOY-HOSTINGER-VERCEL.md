@@ -186,6 +186,7 @@ No Portainer: stack → **Update** → **Pull and redeploy** (rebuild da imagem 
 | CORS no browser | Conferir `CORS_ORIGIN` e reiniciar API |
 | Mapa vazio | Coleta + pins UF; filtros de categoria no radar |
 | Build Vercel falha | Ver log; rodar `npm run vercel-build` local |
+| Redeploy Portainer: `pull access denied for lancex-api` | Imagem é **local** (build no VPS). No compose do serviço `api`, use `pull_policy: build`. No Portainer: **Update the stack** com opção de **rebuild** da imagem, não só “pull images”. |
 
 ---
 
