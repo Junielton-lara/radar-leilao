@@ -4,5 +4,11 @@
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "apps/web/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "http://187.127.23.89:3011/api/:path*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

@@ -141,9 +141,22 @@ O `vercel.json` na raiz já define:
 
 | Nome | Valor |
 |------|--------|
-| `VITE_API_URL` | `https://api.seudominio.com/api/v1` |
+| `VITE_API_URL` | `/api/v1` (mesma origem — ver §3.4 sem domínio na API) **ou** `https://api.seudominio.com/api/v1` |
 
 **Production** e **Preview**: use a mesma API ou uma API de staging.
+
+### 3.4 Sem domínio na API (só Vercel + IP)
+
+O front na Vercel é **HTTPS**; o browser **bloqueia** chamadas a `http://SEU_IP:3011` (mixed content).
+
+Solução temporária: o `vercel.json` faz **proxy** `/api/*` → `http://IP:3011/api/*` (servidor Vercel → VPS; o browser só fala com a Vercel).
+
+1. **Vercel** → env `VITE_API_URL` = `/api/v1` → redeploy.
+2. No `vercel.json`, ajuste o IP em `destination` se o VPS mudar.
+3. **Firewall Hostinger**: libere **3011/TCP** (ou a Vercel não alcança a API).
+4. **CORS** no Portainer: `https://radar-leilao-qkgw.vercel.app` (URL exata do projeto).
+
+**Nginx Proxy Manager** com Let's Encrypt exige **hostname** (subdomínio). Sem domínio comprado, alternativas: proxy Vercel (acima), **DuckDNS** grátis, ou `187-127-23-89.sslip.io` + NPM.
 
 ### 3.3 Deploy
 
