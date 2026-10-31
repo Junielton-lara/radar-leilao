@@ -77,19 +77,44 @@ A primeira subida **compila a imagem da API** (pode levar alguns minutos).
 
 ### 2.4 Seed do admin (primeira vez)
 
-Com a stack no ar, rode **uma vez** no host (ou container one-off):
+Com a stack no ar, no container **api** (shell **`/bin/sh`**, não `bash`):
 
-```bash
-cd /opt/radar-leilao/apps/api
-export DATABASE_URL="postgresql://lancex:SUA_SENHA@127.0.0.1:5432/lancex?schema=public"
-npm ci --legacy-peer-deps
-npx prisma migrate deploy
-npm run prisma:seed -w @lancex/api
+```sh
+cd /app/apps/api
+npx prisma db seed
 ```
 
-Ou defina `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` temporariamente e use `docker compose run` com o serviço api (requer Node no host ou imagem auxiliar).
+A imagem de produção inclui `tsconfig.seed.json` (rebuild da imagem após atualizar o Dockerfile). Se o seed falhar com `Cannot read file tsconfig.seed.json`, use o script Node abaixo ou redeploy com imagem atualizada.
 
-Credenciais padrão do seed local: `admin@lancex.app` / `ChangeMeAdmin123!` — **troque em produção**.
+**Admin mínimo (emergência, só login):**
+
+```sh
+cd /app/apps/api
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcrypt');
+(async () => {
+  const prisma = new PrismaClient();
+  const email = 'admin@lancex.app';
+  const password = 'ChangeMeAdmin123!';
+  const company = await prisma.company.upsert({
+    where: { slug: 'lancex' },
+    update: {},
+    create: { name: 'LanceX', slug: 'lancex', plan: 'pro', status: 'active' },
+  });
+  const passwordHash = await bcrypt.hash(password, 12);
+  await prisma.user.upsert({
+    where: { email },
+    update: { passwordHash, role: 'ADMIN', status: 'ACTIVE', companyId: company.id, name: 'Administrador LanceX' },
+    create: { email, name: 'Administrador LanceX', passwordHash, role: 'ADMIN', status: 'ACTIVE', companyId: company.id },
+  });
+  console.log('Admin OK:', email);
+  await prisma.\$disconnect();
+})().catch((e) => { console.error(e); process.exit(1); });
+"
+```
+
+Credenciais padrão: `admin@lancex.app` / `ChangeMeAdmin123!` — **troque em produção**.
 
 ### 2.5 Reverse proxy (HTTPS) na Hostinger
 
