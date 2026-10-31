@@ -11,9 +11,10 @@ FROM deps AS build
 COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api
 RUN npm run build -w @lancex/shared
-RUN npm run build -w @lancex/api
 WORKDIR /app/apps/api
 RUN npx prisma generate
+WORKDIR /app
+RUN npm run build -w @lancex/api
 
 FROM node:20-alpine AS runner
 WORKDIR /app
