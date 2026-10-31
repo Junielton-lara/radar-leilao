@@ -14,6 +14,7 @@
     "build:shared": "npm run build -w @lancex/shared",
     "build:api": "npm run build -w @lancex/api",
     "build:web": "npm run build -w @lancex/web",
+    "vercel-build": "npm run build -w @lancex/shared && npm run build -w @lancex/web",
     "test": "npm run test -w @lancex/api && npm run test -w @lancex/web",
     "db:up": "docker compose -f docker/docker-compose.yml up -d",
     "db:down": "docker compose -f docker/docker-compose.yml down",

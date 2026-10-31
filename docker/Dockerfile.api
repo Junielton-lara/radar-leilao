@@ -1,0 +1,35 @@
+# LanceX API — imagem de produção (monorepo)
+FROM node:20-alpine AS deps
+WORKDIR /app
+RUN apk add --no-cache openssl libc6-compat
+COPY package.json package-lock.json .npmrc ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared/package.json ./packages/shared/
+RUN npm ci --legacy-peer-deps
+
+FROM deps AS build
+COPY packages/shared ./packages/shared
+COPY apps/api ./apps/api
+RUN npm run build -w @lancex/shared
+RUN npm run build -w @lancex/api
+WORKDIR /app/apps/api
+RUN npx prisma generate
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apk add --no-cache openssl libc6-compat
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/packages/shared ./packages/shared
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/apps/api/package.json ./apps/api/package.json
+COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+COPY docker/api-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+WORKDIR /app/apps/api
+EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3001/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["node", "dist/main.js"]

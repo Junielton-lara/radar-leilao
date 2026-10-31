@@ -71,3 +71,10 @@ APP/
 - FASE 5 — BullMQ/workers/cron
 - FASE 6 — Administração
 - FASE 7 — PWA, hardening, E2E, deploy
+
+## Deploy (Hostinger + Vercel)
+
+Guia completo: **[docs/DEPLOY-HOSTINGER-VERCEL.md](docs/DEPLOY-HOSTINGER-VERCEL.md)**
+
+- **Portainer:** `docker/docker-compose.portainer.yml` + `docker/.env.portainer.example`
+- **Vercel:** `vercel.json` + env `VITE_API_URL=https://sua-api/api/v1`
