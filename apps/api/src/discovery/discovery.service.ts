@@ -27,6 +27,7 @@ import type {
   SourceAdapter,
 } from './adapters/source-adapter.interface';
 import { slugify } from '../common/utils/slug.util';
+import { sanitizeJsonForPostgres, stripNullBytes } from '../common/json/sanitize-json-for-postgres';
 import { resolveMapCoordinates } from '../common/geo/state-centroids';
 
 @Injectable()
@@ -145,13 +146,15 @@ export class DiscoveryService implements OnModuleInit {
         await this.prisma.searchRunItem.create({
           data: {
             searchRunId: run.id,
-            url: item.url,
-            title: item.title,
-            snippet: item.snippet,
+            url: stripNullBytes(item.url),
+            title: item.title ? stripNullBytes(item.title) : item.title,
+            snippet: item.snippet ? stripNullBytes(item.snippet) : item.snippet,
             state: item.state ?? undefined,
             category: item.category ?? undefined,
             status: 'found',
-            rawJson: (item.raw as Prisma.InputJsonValue) ?? undefined,
+            rawJson: item.raw
+              ? (sanitizeJsonForPostgres(item.raw) as Prisma.InputJsonValue)
+              : undefined,
           },
         });
 
@@ -252,7 +255,9 @@ export class DiscoveryService implements OnModuleInit {
           eventType: 'rediscovery',
           reason: 'URL canônica já conhecida — histórico preservado',
           actor: 'discovery',
-          evidenceJson: candidate.evidence as Prisma.InputJsonValue,
+          evidenceJson: sanitizeJsonForPostgres(
+            candidate.evidence,
+          ) as Prisma.InputJsonValue,
         },
       });
       await this.prisma.auction.update({
@@ -329,9 +334,11 @@ export class DiscoveryService implements OnModuleInit {
 
     return this.prisma.auction.create({
       data: {
-        title: candidate.title,
+        title: stripNullBytes(candidate.title),
         slug,
-        description: candidate.description,
+        description: candidate.description
+          ? stripNullBytes(candidate.description)
+          : candidate.description,
         state: candidate.state ?? undefined,
         city: candidate.city ?? undefined,
         latitude: coords?.latitude,

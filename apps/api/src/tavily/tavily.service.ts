@@ -8,6 +8,7 @@ import {
   decryptCredential,
   sha256,
 } from '../common/crypto/credentials.crypto';
+import { sanitizeJsonForPostgres } from '../common/json/sanitize-json-for-postgres';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   TavilyExtractResponse,
@@ -231,6 +232,9 @@ export class TavilyService {
     responseJson: Prisma.InputJsonValue;
     creditsUsed: number;
   }) {
+    const responseJson = sanitizeJsonForPostgres(
+      input.responseJson,
+    ) as Prisma.InputJsonValue;
     await this.prisma.tavilyCache.upsert({
       where: {
         queryHash_day_endpoint: {
@@ -243,11 +247,11 @@ export class TavilyService {
         queryHash: input.queryHash,
         day: input.day,
         endpoint: input.endpoint,
-        responseJson: input.responseJson,
+        responseJson,
         creditsUsed: input.creditsUsed,
       },
       update: {
-        responseJson: input.responseJson,
+        responseJson,
         creditsUsed: input.creditsUsed,
       },
     });
