@@ -44,13 +44,31 @@ cp docker/.env.portainer.example docker/.env.portainer
 - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` — mín. 32 caracteres
 - `SETTINGS_ENCRYPTION_KEY` — 32 caracteres (integrações Tavily/IA no admin)
 
-### 2.3 Criar stack no Portainer
+### 2.3 Criar stack no Portainer (Git — recomendado)
 
-1. **Stacks** → **Add stack** → nome `lancex`
-2. **Build method**: Web editor
-3. Cole o conteúdo de `docker/docker-compose.portainer.yml`
-4. **Environment variables**: importe `docker/.env.portainer` ou cole chave a chave
-5. **Deploy the stack**
+Na tela **Create stack** (como você está agora):
+
+| Campo | Valor |
+|--------|--------|
+| **Name** | `app-radar` (ou `lancex`) |
+| **Build method** | Git repository |
+| **Repository URL** | `https://github.com/Junielton-lara/radar-leilao` |
+| **Repository reference** | `refs/heads/main` |
+| **Compose path** | `docker-compose.yml` |
+| **Authentication** | seu usuário GitHub + PAT (repo read) |
+
+O repositório inclui `stack.env` com placeholders. **Antes do deploy**, em **Environment variables** → **Advanced mode**, sobrescreva pelo menos:
+
+- `POSTGRES_PASSWORD`
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` (32+ caracteres cada)
+- `SETTINGS_ENCRYPTION_KEY` (32 caracteres)
+- `CORS_ORIGIN` = URL exata do front na Vercel (sem `/` no final)
+
+Depois: **Deploy the stack**. A primeira vez **builda a imagem** (5–15 min).
+
+Alternativa: **Web editor** + conteúdo de `docker/docker-compose.portainer.yml` ou `docker-compose.yml` na raiz.
+
+**GitOps updates**: pode deixar desligado na primeira subida.
 
 A primeira subida **compila a imagem da API** (pode levar alguns minutos).
 
