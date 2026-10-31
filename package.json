@@ -1,0 +1,27 @@
+{
+  "name": "lancex",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LanceX — Radar Inteligente de Leilões do Brasil",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev -w @lancex/api",
+    "dev:web": "npm run dev -w @lancex/web",
+    "build": "npm run build -w @lancex/shared && npm run build -w @lancex/api && npm run build -w @lancex/web",
+    "build:shared": "npm run build -w @lancex/shared",
+    "build:api": "npm run build -w @lancex/api",
+    "build:web": "npm run build -w @lancex/web",
+    "test": "npm run test -w @lancex/api && npm run test -w @lancex/web",
+    "db:up": "docker compose -f docker/docker-compose.yml up -d",
+    "db:down": "docker compose -f docker/docker-compose.yml down",
+    "db:migrate": "npm run prisma:migrate -w @lancex/api",
+    "db:seed": "npm run prisma:seed -w @lancex/api",
+    "db:generate": "npm run prisma:generate -w @lancex/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

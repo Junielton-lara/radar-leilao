@@ -1,0 +1,579 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  ANALYST
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum VerificationStatus {
+  VERIFICADO
+  EM_ANALISE
+  NAO_CONFIRMADO
+  ALTO_RISCO
+  SUSPENSO
+  CANCELADO
+  ENCERRADO
+}
+
+enum AuctionType {
+  JUDICIAL
+  EXTRAJUDICIAL
+  PUBLICO
+  PRIVADO
+}
+
+enum BrazilianState {
+  AC
+  AL
+  AP
+  AM
+  BA
+  CE
+  DF
+  ES
+  GO
+  MA
+  MT
+  MS
+  MG
+  PA
+  PB
+  PR
+  PE
+  PI
+  RJ
+  RN
+  RS
+  RO
+  RR
+  SC
+  SP
+  SE
+  TO
+}
+
+enum OrganizationType {
+  ORGAO_PUBLICO
+  BANCO
+  FINANCEIRA
+  EMPRESA
+  LEILOEIRO
+  OUTRO
+}
+
+enum SourceType {
+  TAVILY
+  GOVERNMENT
+  DIARIO_OFICIAL
+  TRIBUNAL
+  PREFEITURA
+  ORGAO_PUBLICO
+  LEILOEIRO
+  PLATAFORMA_PRIVADA
+  BANCO
+  MANUAL
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         UserRole   @default(USER)
+  status       UserStatus @default(ACTIVE)
+  companyId    String?    @map("company_id")
+  company      Company?   @relation(fields: [companyId], references: [id])
+  refreshTokens RefreshToken[]
+  favorites    UserFavorite[]
+  savedFilters SavedFilter[]
+  alerts       Alert[]
+  notifications Notification[]
+  auditLogs    AuditLog[]
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  document  String?  @map("document_number")
+  plan      String   @default("free")
+  status    String   @default("active")
+  users     User[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("companies")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model AuctionCategory {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  parentId  String?  @map("parent_id")
+  parent    AuctionCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  AuctionCategory[] @relation("CategoryTree")
+  color     String?
+  icon      String?
+  auctions  Auction[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("auction_categories")
+}
+
+model Organizer {
+  id                 String             @id @default(uuid())
+  name               String
+  documentNumber     String?            @map("document_number")
+  organizationType   OrganizationType?  @map("organization_type")
+  officialUrl        String?            @map("official_url")
+  state              BrazilianState?
+  verificationStatus VerificationStatus @default(NAO_CONFIRMADO) @map("verification_status")
+  auctions           Auction[]
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  @@index([documentNumber])
+  @@index([verificationStatus])
+  @@map("organizers")
+}
+
+model Auctioneer {
+  id                 String             @id @default(uuid())
+  name               String
+  documentNumber     String?            @map("document_number")
+  registrationNumber String?            @map("registration_number")
+  commercialRegistry String?            @map("commercial_registry")
+  state              BrazilianState?
+  verificationStatus VerificationStatus @default(NAO_CONFIRMADO) @map("verification_status")
+  evidenceUrl        String?            @map("evidence_url")
+  auctions           Auction[]
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  @@index([registrationNumber])
+  @@index([verificationStatus])
+  @@map("auctioneers")
+}
+
+model Source {
+  id                 String         @id @default(uuid())
+  name               String
+  slug               String         @unique
+  url                String?
+  sourceType         SourceType     @map("source_type")
+  category           String?
+  geographicScope    String?        @map("geographic_scope")
+  priority           Int            @default(50)
+  frequencyMinutes   Int            @default(1440) @map("frequency_minutes")
+  lastRunAt          DateTime?      @map("last_run_at")
+  status             String         @default("active")
+  successRate        Decimal?       @map("success_rate") @db.Decimal(5, 2)
+  configJson         Json?          @map("config_json")
+  auctions           Auction[]
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([sourceType])
+  @@map("sources")
+}
+
+model Auction {
+  id                   String             @id @default(uuid())
+  externalId           String?            @map("external_id")
+  title                String
+  slug                 String             @unique
+  description          String?
+  auctionType          AuctionType?       @map("auction_type")
+  categoryId           String?            @map("category_id")
+  category             AuctionCategory?   @relation(fields: [categoryId], references: [id])
+  organizerId          String?            @map("organizer_id")
+  organizer            Organizer?         @relation(fields: [organizerId], references: [id])
+  auctioneerId         String?            @map("auctioneer_id")
+  auctioneer           Auctioneer?        @relation(fields: [auctioneerId], references: [id])
+  sourceId             String?            @map("source_id")
+  source               Source?            @relation(fields: [sourceId], references: [id])
+  state                BrazilianState?
+  city                 String?
+  address              String?
+  latitude             Decimal?           @db.Decimal(10, 7)
+  longitude            Decimal?           @db.Decimal(10, 7)
+  appraisalValue       Decimal?           @map("appraisal_value") @db.Decimal(18, 2)
+  minimumBid           Decimal?           @map("minimum_bid") @db.Decimal(18, 2)
+  commissionPercentage Decimal?           @map("commission_percentage") @db.Decimal(5, 2)
+  publicationDate      DateTime?          @map("publication_date")
+  startDate            DateTime?          @map("start_date")
+  endDate              DateTime?          @map("end_date")
+  verificationStatus   VerificationStatus @default(NAO_CONFIRMADO) @map("verification_status")
+  confidenceScore      Decimal?           @map("confidence_score") @db.Decimal(5, 2)
+  originalUrl          String?            @map("original_url")
+  canonicalUrl         String?            @map("canonical_url")
+  firstSeenAt          DateTime           @default(now()) @map("first_seen_at")
+  lastCheckedAt        DateTime?          @map("last_checked_at")
+  lots                 AuctionLot[]
+  documents            AuctionDocument[]
+  evidences            AuctionEvidence[]
+  history              AuctionHistory[]
+  aiAnalyses           AiAnalysis[]
+  favorites            UserFavorite[]
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  @@index([verificationStatus])
+  @@index([categoryId])
+  @@index([state])
+  @@index([city])
+  @@index([endDate])
+  @@index([publicationDate])
+  @@index([sourceId])
+  @@index([organizerId])
+  @@index([canonicalUrl])
+  @@index([latitude, longitude])
+  @@index([state, verificationStatus])
+  @@map("auctions")
+}
+
+model AuctionLot {
+  id             String    @id @default(uuid())
+  auctionId      String    @map("auction_id")
+  auction        Auction   @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  lotNumber      String?   @map("lot_number")
+  title          String
+  description    String?
+  appraisalValue Decimal?  @map("appraisal_value") @db.Decimal(18, 2)
+  minimumBid     Decimal?  @map("minimum_bid") @db.Decimal(18, 2)
+  address        String?
+  latitude       Decimal?  @db.Decimal(10, 7)
+  longitude      Decimal?  @db.Decimal(10, 7)
+  status         String?
+  originalUrl    String?   @map("original_url")
+  documents      AuctionDocument[]
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([auctionId])
+  @@map("auction_lots")
+}
+
+model AuctionDocument {
+  id              String    @id @default(uuid())
+  auctionId       String    @map("auction_id")
+  auction         Auction   @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  lotId           String?   @map("lot_id")
+  lot             AuctionLot? @relation(fields: [lotId], references: [id])
+  documentType    String    @map("document_type")
+  title           String
+  originalUrl     String?   @map("original_url")
+  storagePath     String?   @map("storage_path")
+  fileHash        String?   @map("file_hash")
+  publicationDate DateTime? @map("publication_date")
+  extractedText   String?   @map("extracted_text")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([auctionId])
+  @@index([documentType])
+  @@map("auction_documents")
+}
+
+model AuctionEvidence {
+  id                  String   @id @default(uuid())
+  auctionId           String   @map("auction_id")
+  auction             Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  evidenceType        String   @map("evidence_type")
+  sourceUrl           String?  @map("source_url")
+  evidenceDescription String?  @map("evidence_description")
+  evidenceStatus      String   @default("collected") @map("evidence_status")
+  collectedAt         DateTime @default(now()) @map("collected_at")
+
+  @@index([auctionId])
+  @@map("auction_evidences")
+}
+
+model AuctionHistory {
+  id          String   @id @default(uuid())
+  auctionId   String   @map("auction_id")
+  auction     Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  eventType   String   @map("event_type")
+  fromStatus  String?  @map("from_status")
+  toStatus    String?  @map("to_status")
+  reason      String?
+  evidenceJson Json?   @map("evidence_json")
+  actor       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([auctionId])
+  @@index([createdAt])
+  @@map("auction_history")
+}
+
+model AiAnalysis {
+  id             String   @id @default(uuid())
+  auctionId      String   @map("auction_id")
+  auction        Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  model          String
+  analysisType   String   @map("analysis_type")
+  resultJson     Json     @map("result_json")
+  confidenceScore Decimal? @map("confidence_score") @db.Decimal(5, 2)
+  tokenUsage     Int?     @map("token_usage")
+  estimatedCost  Decimal? @map("estimated_cost") @db.Decimal(12, 6)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([auctionId])
+  @@map("ai_analyses")
+}
+
+model SearchRun {
+  id              String   @id @default(uuid())
+  name            String?
+  status          String   @default("pending")
+  coverageStates  String[] @map("coverage_states")
+  categories      String[]
+  sourcesConsulted Int     @default(0) @map("sources_consulted")
+  successCount    Int      @default(0) @map("success_count")
+  failureCount    Int      @default(0) @map("failure_count")
+  opportunitiesFound Int   @default(0) @map("opportunities_found")
+  startedAt       DateTime? @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  items           SearchRunItem[]
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("search_runs")
+}
+
+model SearchRunItem {
+  id          String    @id @default(uuid())
+  searchRunId String    @map("search_run_id")
+  searchRun   SearchRun @relation(fields: [searchRunId], references: [id], onDelete: Cascade)
+  url         String
+  title       String?
+  snippet     String?
+  state       BrazilianState?
+  category    String?
+  status      String    @default("found")
+  rawJson     Json?     @map("raw_json")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([searchRunId])
+  @@index([url])
+  @@map("search_run_items")
+}
+
+model SourceCheck {
+  id        String   @id @default(uuid())
+  sourceId  String   @map("source_id")
+  status    String
+  message   String?
+  metaJson  Json?    @map("meta_json")
+  checkedAt DateTime @default(now()) @map("checked_at")
+
+  @@index([sourceId])
+  @@map("source_checks")
+}
+
+model UserFavorite {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auctionId String   @map("auction_id")
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, auctionId])
+  @@map("user_favorites")
+}
+
+model SavedFilter {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  filterJson Json     @map("filter_json")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("saved_filters")
+}
+
+model Alert {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  configJson Json     @map("config_json")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("alerts")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String?
+  type      String
+  readAt    DateTime? @map("read_at")
+  metaJson  Json?    @map("meta_json")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  valueJson Json     @map("value_json")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model IntegrationSetting {
+  id              String   @id @default(uuid())
+  provider        String   @unique
+  configJson      Json     @map("config_json")
+  credentialsEnc  String?  @map("credentials_enc")
+  active          Boolean  @default(false)
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("integration_settings")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metaJson   Json?    @map("meta_json")
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model StateCoverage {
+  id               String         @id @default(uuid())
+  state            BrazilianState @unique
+  name             String
+  region           String
+  lastSearchedAt   DateTime?      @map("last_searched_at")
+  categoriesCovered String[]      @map("categories_covered")
+  sourcesConsulted Int            @default(0) @map("sources_consulted")
+  opportunitiesFound Int          @default(0) @map("opportunities_found")
+  successCount     Int            @default(0) @map("success_count")
+  failureCount     Int            @default(0) @map("failure_count")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@map("state_coverage")
+}
+
+model TavilyCache {
+  id           String   @id @default(uuid())
+  queryHash    String   @map("query_hash")
+  day          String
+  endpoint     String
+  responseJson Json     @map("response_json")
+  creditsUsed  Int      @default(1) @map("credits_used")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([queryHash, day, endpoint])
+  @@index([day])
+  @@map("tavily_cache")
+}
+
+model IntegrationUsageLog {
+  id               String   @id @default(uuid())
+  provider         String
+  operation        String
+  creditsEstimated Int?     @map("credits_estimated")
+  tokensUsed       Int?     @map("tokens_used")
+  estimatedCost    Decimal? @map("estimated_cost") @db.Decimal(12, 6)
+  success          Boolean  @default(true)
+  metaJson         Json?    @map("meta_json")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([provider, createdAt])
+  @@index([createdAt])
+  @@map("integration_usage_logs")
+}
+
+model IntelligenceBriefing {
+  id                String   @id @default(uuid())
+  title             String
+  cutOffAt          DateTime @map("cut_off_at")
+  searchRunId       String?  @map("search_run_id")
+  source            String   @default("system")
+  metricsJson       Json     @map("metrics_json")
+  highlightsJson    Json     @map("highlights_json")
+  limitationsJson   Json?    @map("limitations_json")
+  bodyMarkdown      String?  @map("body_markdown")
+  narrativeMarkdown String?  @map("narrative_markdown")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([cutOffAt])
+  @@map("intelligence_briefings")
+}
+
+model AuctionDuplicateLink {
+  id              String   @id @default(uuid())
+  primaryAuctionId String  @map("primary_auction_id")
+  duplicateAuctionId String @map("duplicate_auction_id")
+  matchType       String   @map("match_type")
+  score           Decimal? @db.Decimal(5, 2)
+  evidenceJson    Json?    @map("evidence_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([primaryAuctionId, duplicateAuctionId])
+  @@index([primaryAuctionId])
+  @@index([duplicateAuctionId])
+  @@map("auction_duplicate_links")
+}

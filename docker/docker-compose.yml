@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lancex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lancex
+      POSTGRES_PASSWORD: lancex
+      POSTGRES_DB: lancex
+    ports:
+      - "5433:5432"
+    volumes:
+      - lancex_pgdata:/var/lib/postgresql/data
+      - ./init-postgis-stub.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lancex -d lancex"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: lancex-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - lancex_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  lancex_pgdata:
+  lancex_redis:
