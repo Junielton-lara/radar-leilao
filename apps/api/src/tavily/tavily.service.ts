@@ -235,26 +235,32 @@ export class TavilyService {
     const responseJson = sanitizeJsonForPostgres(
       input.responseJson,
     ) as Prisma.InputJsonValue;
-    await this.prisma.tavilyCache.upsert({
-      where: {
-        queryHash_day_endpoint: {
+    try {
+      await this.prisma.tavilyCache.upsert({
+        where: {
+          queryHash_day_endpoint: {
+            queryHash: input.queryHash,
+            day: input.day,
+            endpoint: input.endpoint,
+          },
+        },
+        create: {
           queryHash: input.queryHash,
           day: input.day,
           endpoint: input.endpoint,
+          responseJson,
+          creditsUsed: input.creditsUsed,
         },
-      },
-      create: {
-        queryHash: input.queryHash,
-        day: input.day,
-        endpoint: input.endpoint,
-        responseJson,
-        creditsUsed: input.creditsUsed,
-      },
-      update: {
-        responseJson,
-        creditsUsed: input.creditsUsed,
-      },
-    });
+        update: {
+          responseJson,
+          creditsUsed: input.creditsUsed,
+        },
+      });
+    } catch (e) {
+      this.logger.warn(
+        `Tavily cache não gravado (${input.endpoint}): ${String(e)}`,
+      );
+    }
   }
 
   private async resolveApiKey(): Promise<string | null> {
@@ -354,7 +360,9 @@ export class TavilyService {
         operation,
         creditsEstimated: credits,
         success,
-        metaJson: (meta as Prisma.InputJsonValue) ?? undefined,
+        metaJson: meta
+          ? (sanitizeJsonForPostgres(meta) as Prisma.InputJsonValue)
+          : undefined,
       },
     });
   }

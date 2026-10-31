@@ -110,7 +110,8 @@ export class DiscoveryService implements OnModuleInit {
     const categories = await this.prisma.auctionCategory.findMany({
       select: { slug: true },
     });
-    const categorySlugs = categories.map((c) => c.slug);
+    const allCategorySlugs = categories.map((c) => c.slug);
+    const categorySlugs = this.resolveCategoriesForSource(source, allCategorySlugs);
     const ufList =
       states ??
       (source.geographicScope
@@ -143,31 +144,38 @@ export class DiscoveryService implements OnModuleInit {
 
       for (const item of items) {
         found += 1;
-        await this.prisma.searchRunItem.create({
-          data: {
-            searchRunId: run.id,
-            url: stripNullBytes(item.url),
-            title: item.title ? stripNullBytes(item.title) : item.title,
-            snippet: item.snippet ? stripNullBytes(item.snippet) : item.snippet,
-            state: item.state ?? undefined,
-            category: item.category ?? undefined,
-            status: 'found',
-            rawJson: item.raw
-              ? (sanitizeJsonForPostgres(item.raw) as Prisma.InputJsonValue)
-              : undefined,
-          },
-        });
+        try {
+          await this.prisma.searchRunItem.create({
+            data: {
+              searchRunId: run.id,
+              url: stripNullBytes(item.url),
+              title: item.title ? stripNullBytes(item.title) : item.title,
+              snippet: item.snippet ? stripNullBytes(item.snippet) : item.snippet,
+              state: item.state ?? undefined,
+              category: item.category ?? undefined,
+              status: 'found',
+              rawJson: item.raw
+                ? (sanitizeJsonForPostgres(item.raw) as Prisma.InputJsonValue)
+                : undefined,
+            },
+          });
 
-        const extracted = (await adapter.extract([item.url]))[0];
-        const candidate = adapter.normalize(item, extracted);
-        if (!candidate) continue;
-        const validation = adapter.validate(candidate);
-        if (!validation.ok) {
+          const extracted = (await adapter.extract([item.url]))[0];
+          const candidate = adapter.normalize(item, extracted);
+          if (!candidate) continue;
+          const validation = adapter.validate(candidate);
+          if (!validation.ok) {
+            failure += 1;
+            continue;
+          }
+          const upserted = await this.persistCandidate(candidate, source.id);
+          if (upserted) success += 1;
+        } catch (itemErr) {
           failure += 1;
-          continue;
+          this.logger.warn(
+            `Discovery item falhou (${item.url}): ${String(itemErr)}`,
+          );
         }
-        const upserted = await this.persistCandidate(candidate, source.id);
-        if (upserted) success += 1;
       }
 
       for (const uf of ufList) {
@@ -233,6 +241,40 @@ export class DiscoveryService implements OnModuleInit {
       });
       return { ok: false, searchRunId: run.id, message: String(e) };
     }
+  }
+
+  private resolveCategoriesForSource(
+    source: { category: string | null; slug: string; configJson: unknown },
+    allSlugs: string[],
+  ): string[] {
+    const cfg = source.configJson as {
+      categories?: string[];
+      categorySlug?: string;
+    } | null;
+    if (cfg?.categories?.length) {
+      const picked = cfg.categories.filter((s) => allSlugs.includes(s));
+      if (picked.length) return picked;
+    }
+    if (cfg?.categorySlug && allSlugs.includes(cfg.categorySlug)) {
+      return [cfg.categorySlug];
+    }
+    if (source.category) {
+      const direct = source.category.trim();
+      if (allSlugs.includes(direct)) return [direct];
+      const fromSlug = slugify(direct);
+      if (allSlugs.includes(fromSlug)) return [fromSlug];
+    }
+    const slugAliases: Record<string, string> = {
+      motos: 'motocicletas',
+      carros: 'veiculos',
+      caminhao: 'caminhoes',
+      caminhoes: 'caminhoes',
+      sucatas: 'sucatas',
+      'cobertura-nacional': 'veiculos',
+    };
+    const alias = slugAliases[source.slug];
+    if (alias && allSlugs.includes(alias)) return [alias];
+    return allSlugs;
   }
 
   private async persistCandidate(
