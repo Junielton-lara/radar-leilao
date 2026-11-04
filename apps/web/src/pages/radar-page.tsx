@@ -180,7 +180,7 @@ export function RadarPage() {
       ) : null}
 
       <div className="relative min-h-[min(78vh,calc(100dvh-14rem))] w-full flex-1 basis-0">
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 z-0">
           <BrazilMap
             ref={mapRef}
             markers={markersQuery.data ?? []}

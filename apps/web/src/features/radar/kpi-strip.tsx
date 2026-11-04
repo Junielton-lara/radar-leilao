@@ -3,6 +3,7 @@ import { formatNumber } from '@/lib/utils';
 import {
   Gavel,
   KPI_CATEGORY_ORDER,
+  VEHICLE_FOCUS_LABELS,
   getCategoryIcon,
   kpiIconTone,
 } from './category-meta';
@@ -41,10 +42,7 @@ export function KpiStrip({
     return {
       key: slug,
       slug,
-      label:
-        slug === 'pecas-desmanche'
-          ? 'Peças / desmanche'
-          : (hit?.name ?? slug),
+      label: hit?.name ?? VEHICLE_FOCUS_LABELS[slug],
       value: hit?.count ?? 0,
       tone: kpiIconTone(slug),
       icon: getCategoryIcon(slug),

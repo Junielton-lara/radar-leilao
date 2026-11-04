@@ -2,9 +2,9 @@ import type { CategoryOption } from './map-filters';
 import type { RadarFiltersState } from './filter-types';
 import {
   AUTO_FOCUS_CATEGORY_SLUGS,
+  buildVehicleFocusFilterRows,
   getCategoryIcon,
   getMapPinColor,
-  sortCategoriesForFocus,
 } from './category-meta';
 
 export function MapFloatingFilters({
@@ -16,37 +16,43 @@ export function MapFloatingFilters({
   onChange: (next: RadarFiltersState) => void;
   categories: CategoryOption[];
 }) {
-  const picked = new Set(filters.categoryIds);
+  const slugById = new Map(categories.map((c) => [c.id, c.slug]));
+  const idBySlug = new Map(categories.map((c) => [c.slug, c.id]));
 
-  const syncCategories = (ids: string[]) => {
-    const slugById = new Map(categories.map((c) => [c.id, c.slug]));
-    const slugs = ids
-      .map((id) => slugById.get(id))
-      .filter((s): s is string => Boolean(s));
-    onChange({ ...filters, categoryIds: ids, categorySlugs: slugs });
-  };
-
-  const toggle = (id: string) => {
-    const allIds = categories.map((c) => c.id);
-    let next: string[];
-    if (picked.size === 0) {
-      next = allIds.filter((x) => x !== id);
-    } else if (picked.has(id)) {
-      next = Array.from(picked).filter((x) => x !== id);
-    } else {
-      next = [...picked, id];
-      if (next.length >= allIds.length) next = [];
-    }
-    syncCategories(next);
-  };
-
-  const visible = sortCategoriesForFocus(categories).filter((c) =>
-    (AUTO_FOCUS_CATEGORY_SLUGS as readonly string[]).includes(c.slug),
+  const pickedSlugs = new Set(
+    filters.categorySlugs.length
+      ? filters.categorySlugs
+      : filters.categoryIds
+          .map((id) => slugById.get(id))
+          .filter((s): s is string => Boolean(s)),
   );
+
+  const syncSlugs = (slugs: string[]) => {
+    const ids = slugs
+      .map((slug) => idBySlug.get(slug))
+      .filter((id): id is string => Boolean(id));
+    onChange({ ...filters, categorySlugs: slugs, categoryIds: ids });
+  };
+
+  const toggle = (slug: string) => {
+    const allSlugs = AUTO_FOCUS_CATEGORY_SLUGS as readonly string[];
+    let next: string[];
+    if (pickedSlugs.size === 0) {
+      next = allSlugs.filter((s) => s !== slug);
+    } else if (pickedSlugs.has(slug)) {
+      next = Array.from(pickedSlugs).filter((s) => s !== slug);
+    } else {
+      next = [...pickedSlugs, slug];
+      if (next.length >= allSlugs.length) next = [];
+    }
+    syncSlugs(next);
+  };
+
+  const visible = buildVehicleFocusFilterRows(categories);
 
   return (
     <div
-      className="card-soft pointer-events-auto absolute left-3 top-3 z-10 max-h-[min(70vh,420px)] w-[min(100%,240px)] overflow-y-auto p-3"
+      className="card-soft pointer-events-auto absolute left-3 top-3 z-30 max-h-[min(70vh,420px)] w-[min(calc(100%-1.5rem),260px)] overflow-y-auto border-white/80 bg-white/95 p-3 shadow-lg backdrop-blur-sm"
       data-testid="map-floating-filters"
     >
       <div className="text-xs font-bold text-text">Filtrar no mapa</div>
@@ -57,16 +63,15 @@ export function MapFloatingFilters({
         {visible.map((cat) => {
           const Icon = getCategoryIcon(cat.slug);
           const color = getMapPinColor(cat.slug);
-          const checked =
-            picked.size === 0 || picked.has(cat.id);
+          const checked = pickedSlugs.size === 0 || pickedSlugs.has(cat.slug);
           return (
-            <li key={cat.id}>
+            <li key={cat.slug}>
               <label className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 hover:bg-slate-50">
                 <input
                   type="checkbox"
                   className="accent-[#E31B23]"
                   checked={checked}
-                  onChange={() => toggle(cat.id)}
+                  onChange={() => toggle(cat.slug)}
                 />
                 <span
                   className="flex h-7 w-7 items-center justify-center rounded-lg"

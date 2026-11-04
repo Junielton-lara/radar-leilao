@@ -18,6 +18,33 @@ import {
 /** Foco LanceX: veículos e desmanche */
 export const AUTO_FOCUS_CATEGORY_SLUGS = VEHICLE_FOCUS_CATEGORY_SLUGS;
 
+export const VEHICLE_FOCUS_LABELS: Record<
+  (typeof VEHICLE_FOCUS_CATEGORY_SLUGS)[number],
+  string
+> = {
+  veiculos: 'Veículos',
+  motocicletas: 'Motocicletas',
+  caminhoes: 'Caminhões',
+  sucatas: 'Sucatas',
+  'pecas-desmanche': 'Peças / desmanche',
+};
+
+/** Filtros do mapa — sempre 5 linhas, mesmo se /categories falhar ou estiver desatualizado. */
+export function buildVehicleFocusFilterRows<
+  T extends { id: string; name: string; slug: string },
+>(categories: T[]): T[] {
+  const bySlug = new Map(categories.map((c) => [c.slug, c]));
+  return VEHICLE_FOCUS_CATEGORY_SLUGS.map((slug) => {
+    const hit = bySlug.get(slug);
+    if (hit) return hit;
+    return {
+      id: `slug:${slug}`,
+      name: VEHICLE_FOCUS_LABELS[slug],
+      slug,
+    } as T;
+  });
+}
+
 /** Legenda oficial LanceX Intelligence (mapa) */
 export type MapLegendKey =
   | 'sucata-inservivel'
