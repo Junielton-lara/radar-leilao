@@ -60,6 +60,17 @@ export function MapFiltersPanel({
     patch({ [key]: next } as Partial<RadarFiltersState>);
   };
 
+  const toggleCategory = (catId: string) => {
+    const nextIds = filters.categoryIds.includes(catId)
+      ? filters.categoryIds.filter((id) => id !== catId)
+      : [...filters.categoryIds, catId];
+    const slugById = new Map(categories.map((c) => [c.id, c.slug]));
+    const nextSlugs = nextIds
+      .map((id) => slugById.get(id))
+      .filter((s): s is string => Boolean(s));
+    patch({ categoryIds: nextIds, categorySlugs: nextSlugs });
+  };
+
   if (!open) return null;
 
   const body = (
@@ -85,6 +96,7 @@ export function MapFiltersPanel({
                 city: '',
                 region: '',
                 categoryIds: [],
+                categorySlugs: [],
                 auctionType: '',
                 statuses: [],
                 minValue: '',
@@ -192,7 +204,7 @@ export function MapFiltersPanel({
                       type="checkbox"
                       className="accent-brand"
                       checked={checked}
-                      onChange={() => toggleInArray('categoryIds', cat.id)}
+                      onChange={() => toggleCategory(cat.id)}
                       data-testid={`filter-category-${cat.slug}`}
                     />
                     <span

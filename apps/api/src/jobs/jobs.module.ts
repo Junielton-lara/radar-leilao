@@ -1,4 +1,5 @@
 import { Global, Module, forwardRef } from '@nestjs/common';
+import { AuctionsModule } from '../auctions/auctions.module';
 import { AiEngineModule } from '../ai-engine/ai-engine.module';
 import { DiscoveryModule } from '../discovery/discovery.module';
 import { DocumentsModule } from '../documents/documents.module';
@@ -20,6 +21,7 @@ import { JobsService } from './jobs.service';
     forwardRef(() => VerificationModule),
     forwardRef(() => GeolocationModule),
     forwardRef(() => NotificationsModule),
+    forwardRef(() => AuctionsModule),
   ],
   controllers: [JobsController],
   providers: [JobsService, JobsScheduler],

@@ -42,6 +42,8 @@ export interface AuctionMarker {
   state: BrazilianState | null;
   city: string | null;
   endDate: string | null;
+  startDate?: string | null;
+  publicationDate?: string | null;
   /** true = posição aproximada pela capital da UF (sem geocode) */
   approximate?: boolean;
 }

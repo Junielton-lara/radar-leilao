@@ -202,7 +202,7 @@ async function main() {
           'pecas-desmanche',
         ],
         queryTemplate:
-          'edital publicação leilão {category} {state} Brasil site:gov.br OR filetype:pdf',
+          'edital publicação leilão {category} {state} Brasil data sessão encerramento futuro site:gov.br OR filetype:pdf',
       },
     },
     create: {
@@ -225,7 +225,7 @@ async function main() {
           'pecas-desmanche',
         ],
         queryTemplate:
-          'edital publicação leilão {category} {state} Brasil site:gov.br OR filetype:pdf',
+          'edital publicação leilão {category} {state} Brasil data sessão encerramento futuro site:gov.br OR filetype:pdf',
       },
     },
   });

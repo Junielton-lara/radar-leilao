@@ -45,6 +45,11 @@ export class BboxQueryDto {
   @Max(22)
   zoom?: number;
 
+  @ApiPropertyOptional({ description: 'Comma-separated category slugs (veiculos, motocicletas, …)' })
+  @IsOptional()
+  @IsString()
+  categorySlugs?: string;
+
   @ApiPropertyOptional({ description: 'Comma-separated category UUIDs' })
   @IsOptional()
   @IsString()
@@ -65,6 +70,6 @@ export class BboxQueryDto {
   @Type(() => Number)
   @IsNumber()
   @Min(1)
-  @Max(500)
+  @Max(5000)
   limit?: number = 200;
 }

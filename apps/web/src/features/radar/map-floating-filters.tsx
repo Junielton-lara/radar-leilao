@@ -18,6 +18,14 @@ export function MapFloatingFilters({
 }) {
   const picked = new Set(filters.categoryIds);
 
+  const syncCategories = (ids: string[]) => {
+    const slugById = new Map(categories.map((c) => [c.id, c.slug]));
+    const slugs = ids
+      .map((id) => slugById.get(id))
+      .filter((s): s is string => Boolean(s));
+    onChange({ ...filters, categoryIds: ids, categorySlugs: slugs });
+  };
+
   const toggle = (id: string) => {
     const allIds = categories.map((c) => c.id);
     let next: string[];
@@ -29,7 +37,7 @@ export function MapFloatingFilters({
       next = [...picked, id];
       if (next.length >= allIds.length) next = [];
     }
-    onChange({ ...filters, categoryIds: next });
+    syncCategories(next);
   };
 
   const visible = sortCategoriesForFocus(categories).filter((c) =>

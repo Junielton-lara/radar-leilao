@@ -4,3 +4,4 @@ export * from './types';
 export * from './states';
 export * from './ai-schemas';
 export * from './vehicle-category';
+export * from './auction-availability';

@@ -8,6 +8,7 @@ describe('buildIntelligenceSearchQuery', () => {
   it('prioriza edital para veículos', () => {
     const q = buildIntelligenceSearchQuery('SP' as BrazilianState, 'veiculos');
     expect(q.toLowerCase()).toContain('edital');
+    expect(q.toLowerCase()).toContain('próximos');
     expect(q).toContain('SP');
     expect(q.toLowerCase()).toContain('automóveis');
   });

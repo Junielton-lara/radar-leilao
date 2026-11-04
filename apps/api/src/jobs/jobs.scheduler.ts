@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { AuctionsService } from '../auctions/auctions.service';
 import { TavilyService } from '../tavily/tavily.service';
 import { JobsService } from './jobs.service';
 
@@ -14,6 +15,7 @@ export class JobsScheduler {
   constructor(
     private readonly jobs: JobsService,
     private readonly tavily: TavilyService,
+    private readonly auctions: AuctionsService,
   ) {}
 
   /** 8 ciclos/dia — horário de Brasília (UTC−3 → UTC). */
@@ -43,6 +45,14 @@ export class JobsScheduler {
       type: 'discovery-run',
       name: `cron-hourly-${new Date().toISOString()}`,
     });
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async expirePastAuctions() {
+    const { expired } = await this.auctions.expirePastAuctions();
+    if (expired > 0) {
+      this.logger.log(`Leilões encerrados por data: ${expired}`);
+    }
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_6AM)

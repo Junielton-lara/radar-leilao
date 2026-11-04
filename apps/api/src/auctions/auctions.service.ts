@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { resolveMapCoordinates } from '../common/geo/state-centroids';
 import { BboxQueryDto } from './dto/bbox-query.dto';
 import { AuctionListQueryDto } from './dto/list-query.dto';
+import { buildMapAuctionWhere } from './auction-map.filter';
 
 const AUTO_FOCUS_CATEGORY_SLUGS = VEHICLE_FOCUS_CATEGORY_SLUGS;
 
@@ -25,6 +26,10 @@ export class AuctionsService {
       ?.split(',')
       .map((s) => s.trim())
       .filter(Boolean);
+    const categorySlugsParam = query.categorySlugs
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const states = query.states
       ?.split(',')
       .map((s) => s.trim())
@@ -35,10 +40,8 @@ export class AuctionsService {
       .filter(Boolean) as VerificationStatus[] | undefined;
 
     const where: Prisma.AuctionWhereInput = {
+      ...buildMapAuctionWhere(),
       state: { not: null },
-      verificationStatus: {
-        notIn: [VerificationStatus.ENCERRADO, VerificationStatus.CANCELADO],
-      },
     };
 
     if (states?.length) {
@@ -48,19 +51,10 @@ export class AuctionsService {
       where.verificationStatus = { in: statuses };
     }
 
-    const rows = await this.prisma.auction.findMany({
-      where,
-      take: limit * 5,
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        category: { select: { slug: true, name: true } },
-        organizer: { select: { name: true } },
-        _count: { select: { lots: true } },
-      },
-    });
-
     let allowedSlugs: Set<string> | null = null;
-    if (categoryIds?.length) {
+    if (categorySlugsParam?.length) {
+      allowedSlugs = new Set(categorySlugsParam);
+    } else if (categoryIds?.length) {
       const cats = await this.prisma.auctionCategory.findMany({
         where: { id: { in: categoryIds } },
         select: { slug: true },
@@ -68,54 +62,95 @@ export class AuctionsService {
       allowedSlugs = new Set(cats.map((c) => c.slug));
     }
 
+    if (allowedSlugs?.size) {
+      const slugList = [...allowedSlugs];
+      where.AND = [
+        ...(Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : []),
+        {
+          OR: [
+            { category: { slug: { in: slugList } } },
+            { categoryId: null },
+          ],
+        },
+      ];
+    }
+
     const markers = [];
-    for (const r of rows) {
-      const effectiveSlug = inferVehicleCategorySlug(
-        r.title,
-        r.description,
-        r.category?.slug,
-      );
-      if (allowedSlugs?.size) {
-        if (!effectiveSlug || !allowedSlugs.has(effectiveSlug)) continue;
-      }
-      const coords = resolveMapCoordinates(
-        r.state,
-        r.id,
-        r.latitude != null ? Number(r.latitude) : null,
-        r.longitude != null ? Number(r.longitude) : null,
-      );
-      if (!coords) continue;
-      if (
-        coords.latitude < query.minLat ||
-        coords.latitude > query.maxLat ||
-        coords.longitude < query.minLng ||
-        coords.longitude > query.maxLng
-      ) {
-        continue;
-      }
-      markers.push({
-        id: r.id,
-        title: r.title,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        approximate: coords.approximate,
-        categorySlug: effectiveSlug ?? r.category?.slug ?? null,
-        categoryName: r.category?.name ?? null,
-        verificationStatus: r.verificationStatus,
-        minimumBid: r.minimumBid?.toString() ?? null,
-        appraisalValue: r.appraisalValue?.toString() ?? null,
-        auctionType: r.auctionType,
-        organizerName: r.organizer?.name ?? null,
-        lotCount: r._count.lots,
-        descriptionSnippet: r.description
-          ? r.description.replace(/\s+/g, ' ').trim().slice(0, 220)
-          : null,
-        originalUrl: r.originalUrl,
-        state: r.state,
-        city: r.city,
-        endDate: r.endDate?.toISOString() ?? null,
+    const batchSize = 1500;
+    const maxScan = allowedSlugs?.size ? 12000 : limit * 5;
+    let skip = 0;
+
+    while (markers.length < limit && skip < maxScan) {
+      const rows = await this.prisma.auction.findMany({
+        where,
+        skip,
+        take: batchSize,
+        orderBy: [{ endDate: 'asc' }, { updatedAt: 'desc' }],
+        include: {
+          category: { select: { slug: true, name: true } },
+          organizer: { select: { name: true } },
+          _count: { select: { lots: true } },
+        },
       });
-      if (markers.length >= limit) break;
+      if (!rows.length) break;
+
+      for (const r of rows) {
+        const effectiveSlug = inferVehicleCategorySlug(
+          r.title,
+          r.description,
+          r.category?.slug,
+        );
+        if (allowedSlugs?.size) {
+          if (!effectiveSlug || !allowedSlugs.has(effectiveSlug)) continue;
+        }
+        const coords = resolveMapCoordinates(
+          r.state,
+          r.id,
+          r.latitude != null ? Number(r.latitude) : null,
+          r.longitude != null ? Number(r.longitude) : null,
+        );
+        if (!coords) continue;
+        if (
+          coords.latitude < query.minLat ||
+          coords.latitude > query.maxLat ||
+          coords.longitude < query.minLng ||
+          coords.longitude > query.maxLng
+        ) {
+          continue;
+        }
+        markers.push({
+          id: r.id,
+          title: r.title,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          approximate: coords.approximate,
+          categorySlug: effectiveSlug ?? r.category?.slug ?? null,
+          categoryName: r.category?.name ?? null,
+          verificationStatus: r.verificationStatus,
+          minimumBid: r.minimumBid?.toString() ?? null,
+          appraisalValue: r.appraisalValue?.toString() ?? null,
+          auctionType: r.auctionType,
+          organizerName: r.organizer?.name ?? null,
+          lotCount: r._count.lots,
+          descriptionSnippet: r.description
+            ? r.description.replace(/\s+/g, ' ').trim().slice(0, 220)
+            : null,
+          originalUrl: r.originalUrl,
+          state: r.state,
+          city: r.city,
+          endDate: r.endDate?.toISOString() ?? null,
+          startDate: r.startDate?.toISOString() ?? null,
+          publicationDate: r.publicationDate?.toISOString() ?? null,
+        });
+        if (markers.length >= limit) break;
+      }
+
+      skip += rows.length;
+      if (rows.length < batchSize) break;
     }
 
     return markers;
@@ -405,6 +440,21 @@ export class AuctionsService {
     return { scanned: rows.length, updated };
   }
 
+  /** Marca ENCERRADO leilões com data de fim já passada. */
+  async expirePastAuctions() {
+    const now = new Date();
+    const result = await this.prisma.auction.updateMany({
+      where: {
+        endDate: { lte: now },
+        verificationStatus: {
+          notIn: [VerificationStatus.ENCERRADO, VerificationStatus.CANCELADO],
+        },
+      },
+      data: { verificationStatus: VerificationStatus.ENCERRADO },
+    });
+    return { expired: result.count };
+  }
+
   /**
    * Persiste categoryId veicular (5 slugs) a partir de título/descrição — idempotente.
    */
@@ -418,11 +468,7 @@ export class AuctionsService {
     const rows = await this.prisma.auction.findMany({
       take: limit,
       orderBy: { updatedAt: 'desc' },
-      where: {
-        verificationStatus: {
-          notIn: [VerificationStatus.ENCERRADO, VerificationStatus.CANCELADO],
-        },
-      },
+      where: buildMapAuctionWhere(),
       select: {
         id: true,
         title: true,

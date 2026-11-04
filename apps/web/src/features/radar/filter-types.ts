@@ -5,6 +5,8 @@ export interface RadarFiltersState {
   city: string;
   region: string;
   categoryIds: string[];
+  /** Slugs veiculares (KPI / mapa) — alinhado à inferência do radar */
+  categorySlugs: string[];
   auctionType: AuctionType | '';
   statuses: VerificationStatus[];
   minValue: string;
@@ -22,6 +24,7 @@ export const EMPTY_RADAR_FILTERS: RadarFiltersState = {
   city: '',
   region: '',
   categoryIds: [],
+  categorySlugs: [],
   auctionType: '',
   statuses: [],
   minValue: '',
@@ -71,6 +74,9 @@ export function buildAuctionQueryParams(
   if (filters.categoryIds.length > 0) {
     params.set('categoryIds', filters.categoryIds.join(','));
   }
+  if (filters.categorySlugs.length > 0) {
+    params.set('categorySlugs', filters.categorySlugs.join(','));
+  }
   if (filters.auctionType) params.set('auctionType', filters.auctionType);
   if (filters.statuses.length === 1) params.set('status', filters.statuses[0]);
   if (filters.statuses.length > 1) {
@@ -118,7 +124,7 @@ export function countActiveFilters(filters: RadarFiltersState): number {
   if (filters.states.length) n += 1;
   if (filters.city.trim()) n += 1;
   if (filters.region) n += 1;
-  if (filters.categoryIds.length) n += 1;
+  if (filters.categoryIds.length || filters.categorySlugs.length) n += 1;
   if (filters.auctionType) n += 1;
   if (filters.statuses.length) n += 1;
   if (filters.minValue || filters.maxValue) n += 1;

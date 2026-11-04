@@ -115,9 +115,9 @@ function propsToMarker(
 
 function fitBrazilView(map: MapLibreMap, animated = true) {
   map.fitBounds(BRAZIL_BOUNDS, {
-    padding: { top: 48, bottom: 48, left: 48, right: 48 },
+    padding: { top: 32, bottom: 64, left: 56, right: 32 },
     duration: animated ? 650 : 0,
-    maxZoom: 4.2,
+    maxZoom: 2.35,
   });
 }
 
@@ -238,8 +238,8 @@ export const BrazilMap = forwardRef<BrazilMapHandle, BrazilMapProps>(
         container: containerRef.current,
         style: STYLE_URL,
         center: BRAZIL_CENTER,
-        zoom: 3.2,
-        minZoom: 2,
+        zoom: 2.4,
+        minZoom: 1,
         maxZoom: 14,
         maxBounds: BRAZIL_BOUNDS,
         attributionControl: false,
@@ -347,7 +347,10 @@ export const BrazilMap = forwardRef<BrazilMapHandle, BrazilMapProps>(
         ensureLayers();
         readyRef.current = true;
         fitBrazilView(map, false);
-        emitBounds();
+        requestAnimationFrame(() => {
+          map.resize();
+          emitBounds();
+        });
         const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
         source?.setData(
           toFeatureCollection(
@@ -369,7 +372,16 @@ export const BrazilMap = forwardRef<BrazilMapHandle, BrazilMapProps>(
 
       mapRef.current = map;
 
+      const ro =
+        typeof ResizeObserver !== 'undefined'
+          ? new ResizeObserver(() => {
+              map.resize();
+            })
+          : null;
+      if (containerRef.current && ro) ro.observe(containerRef.current);
+
       return () => {
+        ro?.disconnect();
         readyRef.current = false;
         htmlMarkersRef.current.forEach((m) => m.remove());
         htmlMarkersRef.current.clear();
@@ -391,7 +403,7 @@ export const BrazilMap = forwardRef<BrazilMapHandle, BrazilMapProps>(
 
     return (
       <div
-        className="relative h-full min-h-[420px] w-full overflow-hidden rounded-2xl border border-border bg-[#dbeafe]/30 shadow-inner"
+        className="relative h-full min-h-0 w-full overflow-hidden rounded-2xl border border-border bg-[#dbeafe]/30 shadow-inner"
         data-testid="radar-map"
       >
         <div ref={containerRef} className="h-full w-full" />

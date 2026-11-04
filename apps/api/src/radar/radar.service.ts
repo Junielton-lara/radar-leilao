@@ -5,13 +5,10 @@ import {
   VEHICLE_FOCUS_CATEGORY_SLUGS,
   inferVehicleCategorySlug,
 } from '@lancex/shared';
+import { buildMapAuctionWhere } from '../auctions/auction-map.filter';
 import { PrismaService } from '../prisma/prisma.service';
 
-const ACTIVE_AUCTION_WHERE: Prisma.AuctionWhereInput = {
-  verificationStatus: {
-    notIn: [VerificationStatus.ENCERRADO, VerificationStatus.CANCELADO],
-  },
-};
+const MAP_ACTIVE_WHERE: Prisma.AuctionWhereInput = buildMapAuctionWhere();
 
 @Injectable()
 export class RadarService {
@@ -37,7 +34,7 @@ export class RadarService {
       recentUpdates,
       activeForVehicleKpi,
     ] = await Promise.all([
-      this.prisma.auction.count({ where: ACTIVE_AUCTION_WHERE }),
+      this.prisma.auction.count({ where: MAP_ACTIVE_WHERE }),
       this.prisma.auction.count({
         where: { verificationStatus: VerificationStatus.VERIFICADO },
       }),
@@ -73,7 +70,7 @@ export class RadarService {
       this.prisma.auction.groupBy({
         by: ['state'],
         _count: { _all: true },
-        where: { state: { not: null }, ...ACTIVE_AUCTION_WHERE },
+        where: { state: { not: null }, ...MAP_ACTIVE_WHERE },
       }),
       this.prisma.auctionHistory.findMany({
         orderBy: { createdAt: 'desc' },
@@ -83,7 +80,7 @@ export class RadarService {
         },
       }),
       this.prisma.auction.findMany({
-        where: ACTIVE_AUCTION_WHERE,
+        where: MAP_ACTIVE_WHERE,
         select: {
           title: true,
           description: true,

@@ -18,7 +18,6 @@ import {
   type CategoryOption,
 } from '@/features/radar/map-filters';
 import {
-  AUTO_FOCUS_CATEGORY_SLUGS,
   STATUS_COLORS,
   getCategoryColorForItem,
   getCategoryIcon,
@@ -79,18 +78,18 @@ export function RadarPage() {
       setKpiCategorySlug(slug);
       if (!categoriesQuery.data?.length) return;
       if (!slug) {
-        const focusIds = categoriesQuery.data
-          .filter((c) =>
-            (AUTO_FOCUS_CATEGORY_SLUGS as readonly string[]).includes(c.slug),
-          )
-          .map((c) => c.id);
-        setFilters((prev) => ({ ...prev, categoryIds: focusIds }));
+        setFilters((prev) => ({
+          ...prev,
+          categoryIds: [],
+          categorySlugs: [],
+        }));
         return;
       }
       const hit = categoriesQuery.data.find((c) => c.slug === slug);
       setFilters((prev) => ({
         ...prev,
         categoryIds: hit ? [hit.id] : [],
+        categorySlugs: slug ? [slug] : [],
       }));
     },
     [categoriesQuery.data],
@@ -98,9 +97,8 @@ export function RadarPage() {
 
   useEffect(() => {
     if (appliedAutoFocusRef.current || !categoriesQuery.data?.length) return;
-    applyCategorySlugFilter(null);
     appliedAutoFocusRef.current = true;
-  }, [categoriesQuery.data, applyCategorySlugFilter]);
+  }, [categoriesQuery.data]);
 
   const endingQuery = useQuery({
     queryKey: ['auctions-ending'],
@@ -131,14 +129,18 @@ export function RadarPage() {
   );
 
   return (
-    <div className="flex min-h-0 flex-col gap-3" data-testid="radar-page">
+    <div
+      className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-2 md:min-h-[calc(100dvh-6.5rem)]"
+      data-testid="radar-page"
+    >
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-lg font-extrabold text-text">
             Mapa de leilões veiculares
           </h1>
-          <p className="text-xs text-text-muted">
-            Editais e oportunidades no Brasil · clique nos números para filtrar
+          <p className="text-xs leading-snug text-text-muted">
+            Só leilões com data futura ou edital revisado · encerrados não
+            aparecem no mapa
           </p>
         </div>
         <Button
@@ -162,7 +164,13 @@ export function RadarPage() {
         data={indicatorsQuery.data}
         loading={indicatorsQuery.isLoading}
         activeCategorySlug={kpiCategorySlug}
-        onCategoryClick={applyCategorySlugFilter}
+        onCategoryClick={(slug) => {
+          if (slug && slug === kpiCategorySlug) {
+            applyCategorySlugFilter(null);
+            return;
+          }
+          applyCategorySlugFilter(slug);
+        }}
       />
 
       {indicatorsQuery.data?.coverageNote ? (
@@ -171,14 +179,16 @@ export function RadarPage() {
         </div>
       ) : null}
 
-      <div className="relative min-h-[min(72vh,640px)] flex-1">
-        <BrazilMap
-          ref={mapRef}
-          markers={markersQuery.data ?? []}
-          selectedId={selectedMarker?.id ?? null}
-          onBoundsChange={onBoundsChange}
-          onSelect={setSelectedMarker}
-        />
+      <div className="relative min-h-[min(78vh,calc(100dvh-14rem))] w-full flex-1 basis-0">
+        <div className="absolute inset-0">
+          <BrazilMap
+            ref={mapRef}
+            markers={markersQuery.data ?? []}
+            selectedId={selectedMarker?.id ?? null}
+            onBoundsChange={onBoundsChange}
+            onSelect={setSelectedMarker}
+          />
+        </div>
         <MapFloatingFilters
           filters={filters}
           onChange={setFilters}
@@ -204,7 +214,7 @@ export function RadarPage() {
       </div>
 
       {(endingQuery.data?.length ?? 0) > 0 ? (
-        <section className="card-soft p-3">
+        <section className="card-soft shrink-0 p-2 md:p-3">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-xs font-bold text-text">
               Próximos encerramentos
@@ -337,6 +347,10 @@ function MarkerSummary({
         <InfoChip
           label="Encerramento"
           value={countdown(marker.endDate) ?? 'Sem data'}
+        />
+        <InfoChip
+          label="Sessão / início"
+          value={countdown(marker.startDate ?? undefined) ?? '—'}
         />
         <InfoChip
           label="Tipo"

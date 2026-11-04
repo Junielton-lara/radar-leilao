@@ -1,8 +1,11 @@
 import { BrazilianState } from '@prisma/client';
-import { VEHICLE_FOCUS_CATEGORY_SLUGS } from '@lancex/shared';
+import {
+  VEHICLE_FOCUS_CATEGORY_SLUGS,
+  buildUpcomingAuctionSearchDateHint,
+} from '@lancex/shared';
 
 const EDITAL_CORE =
-  'edital publicação aviso leilão extrajudicial judicial homologação JUCESP JUCEMG leiloeiro oficial';
+  'edital publicação aviso leilão extrajudicial judicial homologação JUCESP JUCEMG leiloeiro oficial data sessão encerramento lances';
 
 const OFFICIAL_HINT =
   '(site:gov.br OR site:jus.br OR site:receita.fazenda.gov.br OR filetype:pdf edital)';
@@ -27,26 +30,28 @@ const STATE_ORG_HINTS: Partial<Record<BrazilianState, string>> = {
 export function buildIntelligenceSearchQuery(
   state: BrazilianState,
   categorySlug: string,
+  now = new Date(),
 ): string {
+  const dateHint = buildUpcomingAuctionSearchDateHint(now);
   const cat = categorySlug.toLowerCase();
   const vehicleKey = VEHICLE_FOCUS_CATEGORY_SLUGS.find((s) => cat.includes(s));
   if (vehicleKey) {
     const focus = CATEGORY_EDITAL_FOCUS[vehicleKey];
     const org = STATE_ORG_HINTS[state] ?? `prefeitura ${state} edital leilão veículos`;
-    return `${focus} ${state} Brasil ${org} ${OFFICIAL_HINT}`;
+    return `${focus} ${state} Brasil ${dateHint} ${org} ${OFFICIAL_HINT}`;
   }
 
   if (cat.includes('ferroviario')) {
-    return `${EDITAL_CORE} material ferroviário trem vagão ${state} ${OFFICIAL_HINT}`;
+    return `${EDITAL_CORE} material ferroviário trem vagão ${state} ${dateHint} ${OFFICIAL_HINT}`;
   }
   if (cat.includes('imovel') || cat.includes('terreno')) {
-    return `${EDITAL_CORE} imóvel terreno ${state} ${OFFICIAL_HINT}`;
+    return `${EDITAL_CORE} imóvel terreno ${state} ${dateHint} ${OFFICIAL_HINT}`;
   }
   if (cat.includes('maquina') || cat.includes('equipamento')) {
-    return `${EDITAL_CORE} máquinas equipamentos ${state} ${OFFICIAL_HINT}`;
+    return `${EDITAL_CORE} máquinas equipamentos ${state} ${dateHint} ${OFFICIAL_HINT}`;
   }
 
-  return `${EDITAL_CORE} veículos motos caminhões sucata ${state} ${OFFICIAL_HINT}`;
+  return `${EDITAL_CORE} veículos motos caminhões sucata ${state} ${dateHint} ${OFFICIAL_HINT}`;
 }
 
 /** Queries padrão da rodada nacional — foco veicular + edital. */
