@@ -56,8 +56,8 @@ export class TavilyAdapter implements SourceAdapter {
         const query = this.buildQuery(state, category, ctx.source);
         const res = await this.tavily.search({
           query,
-          maxResults: 10,
-          searchDepth: 'basic',
+          maxResults: 12,
+          searchDepth: 'advanced',
         });
         for (const r of res.results ?? []) {
           items.push({

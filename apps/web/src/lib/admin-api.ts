@@ -415,4 +415,13 @@ export const adminApi = {
       '/auctions/geo/backfill-states',
       { method: 'POST' },
     ),
+
+  reclassifyVehicleCategories: () =>
+    adminRequest<{
+      scanned: number;
+      updated: number;
+      unchanged: number;
+      skipped: number;
+      assignedBySlug: Record<string, number>;
+    }>('/auctions/vehicle-categories/reclassify', { method: 'POST' }),
 };

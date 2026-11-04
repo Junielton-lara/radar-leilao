@@ -10,6 +10,8 @@ import { IntelligenceService } from '../intelligence/intelligence.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TavilyService } from '../tavily/tavily.service';
 import { canonicalUrl, isLikelyDuplicate } from './dedupe';
+import { defaultDiscoveryCategorySlugs } from '../intelligence/intelligence-queries';
+import { inferVehicleCategorySlug } from '@lancex/shared';
 import { TavilyAdapter } from './adapters/tavily.adapter';
 import { ManualSourceAdapter } from './adapters/manual.adapter';
 import {
@@ -274,6 +276,10 @@ export class DiscoveryService implements OnModuleInit {
     };
     const alias = slugAliases[source.slug];
     if (alias && allSlugs.includes(alias)) return [alias];
+    const vehicleDefaults = defaultDiscoveryCategorySlugs().filter((s) =>
+      allSlugs.includes(s),
+    );
+    if (vehicleDefaults.length) return vehicleDefaults;
     return allSlugs;
   }
 
@@ -358,9 +364,15 @@ export class DiscoveryService implements OnModuleInit {
     }
 
     let categoryId: string | undefined;
-    if (candidate.categorySlug) {
+    const resolvedSlug =
+      inferVehicleCategorySlug(
+        candidate.title,
+        candidate.description,
+        candidate.categorySlug,
+      ) ?? candidate.categorySlug;
+    if (resolvedSlug) {
       const cat = await this.prisma.auctionCategory.findUnique({
-        where: { slug: candidate.categorySlug },
+        where: { slug: resolvedSlug },
       });
       categoryId = cat?.id;
     }

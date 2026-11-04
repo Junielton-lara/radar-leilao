@@ -1,6 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
 import type { VerificationStatus } from '@lancex/shared';
 import {
+  VEHICLE_FOCUS_CATEGORY_SLUGS,
+  inferVehicleCategorySlug,
+} from '@lancex/shared';
+import {
   Bike,
   Car,
   Gavel,
@@ -11,16 +15,8 @@ import {
   Wrench,
 } from 'lucide-react';
 
-/** Foco LanceX: veículos, sucatas, peças e ferroviário */
-export const AUTO_FOCUS_CATEGORY_SLUGS = [
-  'veiculos',
-  'motocicletas',
-  'caminhoes',
-  'sucatas',
-  'pecas-desmanche',
-  'ferroviarios',
-  'equipamentos',
-] as const;
+/** Foco LanceX: veículos e desmanche */
+export const AUTO_FOCUS_CATEGORY_SLUGS = VEHICLE_FOCUS_CATEGORY_SLUGS;
 
 /** Legenda oficial LanceX Intelligence (mapa) */
 export type MapLegendKey =
@@ -178,13 +174,13 @@ export function getMapPinColor(
 export function resolveDisplayCategorySlug(
   slug: string | null | undefined,
   title?: string | null,
+  description?: string | null,
 ): string {
+  const inferred = inferVehicleCategorySlug(title, description, slug);
+  if (inferred) return inferred;
   if (slug && (ICON_BY_SLUG[slug] || CATEGORY_COLORS[slug])) return slug;
   const t = title ?? '';
   if (TRAIN_KEYWORDS.test(t)) return 'ferroviarios';
-  if (APROVEITAVEL.test(t) || INSERVIVEL.test(t)) return 'pecas-desmanche';
-  if (MOTO_KEYWORDS.test(t)) return 'motocicletas';
-  if (TRUCK_KEYWORDS.test(t)) return 'caminhoes';
   if (slug?.includes('sucata')) return 'sucatas';
   if (slug?.includes('veiculo')) return 'veiculos';
   return slug ?? 'veiculos';
@@ -240,14 +236,7 @@ export function sortCategoriesForFocus<
   });
 }
 
-export const KPI_CATEGORY_ORDER = [
-  'veiculos',
-  'motocicletas',
-  'caminhoes',
-  'sucatas',
-  'pecas-desmanche',
-  'ferroviarios',
-] as const;
+export const KPI_CATEGORY_ORDER = [...VEHICLE_FOCUS_CATEGORY_SLUGS] as const;
 
 export function kpiIconTone(slug: string): string {
   const key = resolveMapLegendKey(slug);

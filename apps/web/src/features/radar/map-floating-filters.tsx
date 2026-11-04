@@ -1,6 +1,7 @@
 import type { CategoryOption } from './map-filters';
 import type { RadarFiltersState } from './filter-types';
 import {
+  AUTO_FOCUS_CATEGORY_SLUGS,
   getCategoryIcon,
   getMapPinColor,
   sortCategoriesForFocus,
@@ -31,7 +32,9 @@ export function MapFloatingFilters({
     onChange({ ...filters, categoryIds: next });
   };
 
-  const visible = sortCategoriesForFocus(categories).slice(0, 8);
+  const visible = sortCategoriesForFocus(categories).filter((c) =>
+    (AUTO_FOCUS_CATEGORY_SLUGS as readonly string[]).includes(c.slug),
+  );
 
   return (
     <div

@@ -18,14 +18,19 @@ interface KpiCard {
   value: number;
   tone: string;
   icon: LucideIcon;
+  slug?: string;
 }
 
 export function KpiStrip({
   data,
   loading,
+  activeCategorySlug,
+  onCategoryClick,
 }: {
   data?: Indicators;
   loading?: boolean;
+  activeCategorySlug?: string | null;
+  onCategoryClick?: (slug: string | null) => void;
 }) {
   const bySlug = new Map(
     (data?.byCategory ?? []).map((c) => [c.slug, c] as const),
@@ -35,57 +40,72 @@ export function KpiStrip({
     const hit = bySlug.get(slug);
     return {
       key: slug,
+      slug,
       label:
         slug === 'pecas-desmanche'
           ? 'Peças / desmanche'
-          : slug === 'ferroviarios'
-            ? 'Ferroviário'
-            : (hit?.name ?? slug),
+          : (hit?.name ?? slug),
       value: hit?.count ?? 0,
       tone: kpiIconTone(slug),
       icon: getCategoryIcon(slug),
     };
   });
 
+  const vehicleTotal = categoryCards.reduce((acc, c) => acc + c.value, 0);
+
   const cards: KpiCard[] = [
     {
       key: 'total',
-      label: 'Leilões ativos',
-      value: data?.totalOpportunities ?? 0,
+      label: 'Leilões veículos',
+      value: vehicleTotal || data?.totalOpportunities || 0,
       tone: 'bg-red-100 text-[#E31B23]',
       icon: Gavel,
     },
-    ...categoryCards.slice(0, 5),
+    ...categoryCards,
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
       {loading
         ? Array.from({ length: 6 }).map((_, idx) => (
-            <div key={idx} className="skeleton h-[88px]" />
+            <div key={idx} className="skeleton h-[76px]" />
           ))
         : cards.map((card, idx) => {
             const Icon = card.icon;
+            const isActive =
+              card.key === 'total'
+                ? !activeCategorySlug
+                : activeCategorySlug === card.slug;
+            const clickable = Boolean(onCategoryClick);
             return (
-              <div
+              <button
                 key={card.key}
-                className="card-soft animate-fade-up flex items-center gap-3 p-4"
+                type="button"
+                disabled={!clickable}
+                onClick={() => {
+                  if (!onCategoryClick) return;
+                  if (card.key === 'total') onCategoryClick(null);
+                  else if (card.slug) onCategoryClick(card.slug);
+                }}
+                className={`card-soft animate-fade-up flex items-center gap-3 p-3 text-left transition ${
+                  clickable ? 'cursor-pointer hover:border-brand/40' : ''
+                } ${isActive && clickable ? 'ring-2 ring-brand/30' : ''}`}
                 style={{ animationDelay: `${idx * 40}ms` }}
               >
                 <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${card.tone}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${card.tone}`}
                 >
                   <Icon className="h-5 w-5" strokeWidth={2.25} />
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-xs font-semibold text-text-muted">
+                  <div className="truncate text-[11px] font-semibold text-text-muted">
                     {card.label}
                   </div>
-                  <div className="font-display text-2xl font-extrabold leading-tight text-text">
+                  <div className="font-display text-xl font-extrabold leading-tight text-text">
                     {formatNumber(card.value)}
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
     </div>

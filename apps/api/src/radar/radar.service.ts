@@ -1,7 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { VerificationStatus } from '@prisma/client';
-import { STATE_REGIONS } from '@lancex/shared';
+import { Prisma, VerificationStatus } from '@prisma/client';
+import {
+  STATE_REGIONS,
+  VEHICLE_FOCUS_CATEGORY_SLUGS,
+  inferVehicleCategorySlug,
+} from '@lancex/shared';
 import { PrismaService } from '../prisma/prisma.service';
+
+const ACTIVE_AUCTION_WHERE: Prisma.AuctionWhereInput = {
+  verificationStatus: {
+    notIn: [VerificationStatus.ENCERRADO, VerificationStatus.CANCELADO],
+  },
+};
 
 @Injectable()
 export class RadarService {
@@ -23,11 +33,11 @@ export class RadarService {
       statesWithData,
       sourcesConsulted,
       lastCoverage,
-      byCategoryRaw,
       byStateRaw,
       recentUpdates,
+      activeForVehicleKpi,
     ] = await Promise.all([
-      this.prisma.auction.count(),
+      this.prisma.auction.count({ where: ACTIVE_AUCTION_WHERE }),
       this.prisma.auction.count({
         where: { verificationStatus: VerificationStatus.VERIFICADO },
       }),
@@ -61,13 +71,9 @@ export class RadarService {
         select: { finishedAt: true },
       }),
       this.prisma.auction.groupBy({
-        by: ['categoryId'],
-        _count: { _all: true },
-      }),
-      this.prisma.auction.groupBy({
         by: ['state'],
         _count: { _all: true },
-        where: { state: { not: null } },
+        where: { state: { not: null }, ...ACTIVE_AUCTION_WHERE },
       }),
       this.prisma.auctionHistory.findMany({
         orderBy: { createdAt: 'desc' },
@@ -76,22 +82,41 @@ export class RadarService {
           auction: { select: { id: true, title: true, state: true } },
         },
       }),
+      this.prisma.auction.findMany({
+        where: ACTIVE_AUCTION_WHERE,
+        select: {
+          title: true,
+          description: true,
+          category: { select: { slug: true, name: true } },
+        },
+      }),
     ]);
 
-    const categories = await this.prisma.auctionCategory.findMany();
-    const categoryMap = new Map(categories.map((c) => [c.id, c]));
+    const vehicleCountBySlug = new Map<string, number>();
+    for (const slug of VEHICLE_FOCUS_CATEGORY_SLUGS) {
+      vehicleCountBySlug.set(slug, 0);
+    }
+    for (const row of activeForVehicleKpi) {
+      const slug = inferVehicleCategorySlug(
+        row.title,
+        row.description,
+        row.category?.slug,
+      );
+      if (slug) {
+        vehicleCountBySlug.set(slug, (vehicleCountBySlug.get(slug) ?? 0) + 1);
+      }
+    }
 
-    const byCategory = byCategoryRaw
-      .filter((row) => row.categoryId)
-      .map((row) => {
-        const cat = categoryMap.get(row.categoryId!);
-        return {
-          slug: cat?.slug ?? 'unknown',
-          name: cat?.name ?? 'Sem categoria',
-          count: row._count._all,
-        };
-      })
-      .sort((a, b) => b.count - a.count);
+    const categories = await this.prisma.auctionCategory.findMany({
+      where: { slug: { in: [...VEHICLE_FOCUS_CATEGORY_SLUGS] } },
+    });
+    const nameBySlug = new Map(categories.map((c) => [c.slug, c.name]));
+
+    const byCategory = VEHICLE_FOCUS_CATEGORY_SLUGS.map((slug) => ({
+      slug,
+      name: nameBySlug.get(slug) ?? slug,
+      count: vehicleCountBySlug.get(slug) ?? 0,
+    }));
 
     const regionCounts = new Map<string, number>();
     for (const row of byStateRaw) {

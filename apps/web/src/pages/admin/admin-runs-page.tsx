@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Play, RefreshCw } from 'lucide-react';
+import { Play, RefreshCw, Tags } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EndpointFallback } from '@/features/admin/endpoint-fallback';
 import { adminApi } from '@/lib/admin-api';
@@ -28,6 +28,14 @@ export function AdminRunsPage() {
     },
   });
 
+  const reclassifyMutation = useMutation({
+    mutationFn: () => adminApi.reclassifyVehicleCategories(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['radar-indicators'] });
+      void queryClient.invalidateQueries({ queryKey: ['auctions-bbox'] });
+    },
+  });
+
   if (runsQuery.isError) {
     return <EndpointFallback error={runsQuery.error} />;
   }
@@ -50,6 +58,17 @@ export function AdminRunsPage() {
           </Button>
           <Button
             size="sm"
+            variant="secondary"
+            onClick={() => reclassifyMutation.mutate()}
+            disabled={reclassifyMutation.isPending}
+          >
+            <Tags className="h-3.5 w-3.5" />
+            {reclassifyMutation.isPending
+              ? 'Classificando…'
+              : 'Reclassificar veículos'}
+          </Button>
+          <Button
+            size="sm"
             onClick={() => startMutation.mutate()}
             disabled={startMutation.isPending}
           >
@@ -58,6 +77,19 @@ export function AdminRunsPage() {
           </Button>
         </div>
       </div>
+
+      {reclassifyMutation.isError ? (
+        <div className="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+          {(reclassifyMutation.error as Error).message}
+        </div>
+      ) : null}
+      {reclassifyMutation.isSuccess && reclassifyMutation.data ? (
+        <div className="rounded-xl border border-success/40 bg-success/10 px-3 py-2 text-xs text-success">
+          Reclassificação concluída · {reclassifyMutation.data.scanned}{' '}
+          analisados · {reclassifyMutation.data.updated} atualizados ·{' '}
+          {reclassifyMutation.data.unchanged} já corretos
+        </div>
+      ) : null}
 
       {startMutation.isError ? (
         <div className="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">

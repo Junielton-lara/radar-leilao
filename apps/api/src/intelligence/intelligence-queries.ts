@@ -1,39 +1,55 @@
 import { BrazilianState } from '@prisma/client';
+import { VEHICLE_FOCUS_CATEGORY_SLUGS } from '@lancex/shared';
 
-const NATIONAL_SOURCES = [
-  'Receita Federal SLE leilão',
-  'PRF leilão veículos sucata',
-  'DETRAN leilão edital',
-  'Justiça leilão judicial',
-  'prefeitura leilão veículos',
-  'leiloeiro edital JUCESP JUCEMG',
-];
+const EDITAL_CORE =
+  'edital publicação aviso leilão extrajudicial judicial homologação JUCESP JUCEMG leiloeiro oficial';
+
+const OFFICIAL_HINT =
+  '(site:gov.br OR site:jus.br OR site:receita.fazenda.gov.br OR filetype:pdf edital)';
+
+const CATEGORY_EDITAL_FOCUS: Record<string, string> = {
+  veiculos: `${EDITAL_CORE} automóveis veículos carros pick-up DETRAN PRF Receita Federal SLE`,
+  motocicletas: `${EDITAL_CORE} motocicletas motos ciclomotor DETRAN`,
+  caminhoes: `${EDITAL_CORE} caminhões ônibus carretas transporte DETRAN PRF`,
+  sucatas: `${EDITAL_CORE} sucata inservível veículos destruição reciclagem DETRAN PRF ferro-velho`,
+  'pecas-desmanche': `${EDITAL_CORE} peças desmontagem desmanche aproveitável chassi motor`,
+};
+
+const STATE_ORG_HINTS: Partial<Record<BrazilianState, string>> = {
+  SP: 'DETRAN SP edital leilão',
+  RJ: 'DETRAN RJ edital leilão',
+  MG: 'DETRAN MG edital leilão',
+  PR: 'DETRAN PR edital leilão JUCEPAR',
+  RS: 'DETRAN RS edital leilão',
+  DF: 'DETRAN DF edital leilão',
+};
 
 export function buildIntelligenceSearchQuery(
   state: BrazilianState,
   categorySlug: string,
 ): string {
   const cat = categorySlug.toLowerCase();
-  let focus = 'leilão edital oficial Brasil';
-  if (cat.includes('sucata') || cat.includes('desmanche')) {
-    focus =
-      'leilão sucata desmontagem peças ferro-velho edital DETRAN PRF Receita';
-  } else if (
-    cat.includes('veiculo') ||
-    cat.includes('moto') ||
-    cat.includes('caminhao')
-  ) {
-    focus =
-      'leilão veículos motos caminhões conservados sucata edital DETRAN PRF';
-  } else if (cat.includes('ferroviario')) {
-    focus = 'leilão material ferroviário trem vagão edital';
-  } else if (cat.includes('imovel') || cat.includes('terreno')) {
-    focus = 'leilão imóvel terreno judicial extrajudicial edital';
-  } else if (cat.includes('maquina') || cat.includes('equipamento')) {
-    focus = 'leilão máquinas equipamentos agrícolas industriais edital';
+  const vehicleKey = VEHICLE_FOCUS_CATEGORY_SLUGS.find((s) => cat.includes(s));
+  if (vehicleKey) {
+    const focus = CATEGORY_EDITAL_FOCUS[vehicleKey];
+    const org = STATE_ORG_HINTS[state] ?? `prefeitura ${state} edital leilão veículos`;
+    return `${focus} ${state} Brasil ${org} ${OFFICIAL_HINT}`;
   }
 
-  const sourceHint =
-    NATIONAL_SOURCES[state.charCodeAt(0) % NATIONAL_SOURCES.length];
-  return `${focus} ${state} ${sourceHint} site:gov.br OR site:receita.fazenda.gov.br OR edital PDF`;
+  if (cat.includes('ferroviario')) {
+    return `${EDITAL_CORE} material ferroviário trem vagão ${state} ${OFFICIAL_HINT}`;
+  }
+  if (cat.includes('imovel') || cat.includes('terreno')) {
+    return `${EDITAL_CORE} imóvel terreno ${state} ${OFFICIAL_HINT}`;
+  }
+  if (cat.includes('maquina') || cat.includes('equipamento')) {
+    return `${EDITAL_CORE} máquinas equipamentos ${state} ${OFFICIAL_HINT}`;
+  }
+
+  return `${EDITAL_CORE} veículos motos caminhões sucata ${state} ${OFFICIAL_HINT}`;
+}
+
+/** Queries padrão da rodada nacional — foco veicular + edital. */
+export function defaultDiscoveryCategorySlugs(): string[] {
+  return [...VEHICLE_FOCUS_CATEGORY_SLUGS];
 }

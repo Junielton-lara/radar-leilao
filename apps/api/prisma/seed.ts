@@ -188,7 +188,23 @@ async function main() {
 
   await prisma.source.upsert({
     where: { slug: 'tavily-nacional' },
-    update: { status: 'active', sourceType: 'TAVILY', priority: 100 },
+    update: {
+      status: 'active',
+      sourceType: 'TAVILY',
+      priority: 100,
+      configJson: {
+        note: 'Rodada nacional focada em editais veiculares (5 categorias). Exige Tavily ativa + chave.',
+        categories: [
+          'veiculos',
+          'motocicletas',
+          'caminhoes',
+          'sucatas',
+          'pecas-desmanche',
+        ],
+        queryTemplate:
+          'edital publicação leilão {category} {state} Brasil site:gov.br OR filetype:pdf',
+      },
+    },
     create: {
       name: 'Tavily — cobertura nacional',
       slug: 'tavily-nacional',
@@ -200,7 +216,16 @@ async function main() {
       frequencyMinutes: 60,
       status: 'active',
       configJson: {
-        note: 'Fonte padrão de discovery. Exige IntegrationSetting tavily ativa + chave.',
+        note: 'Rodada nacional focada em editais veiculares (5 categorias). Exige Tavily ativa + chave.',
+        categories: [
+          'veiculos',
+          'motocicletas',
+          'caminhoes',
+          'sucatas',
+          'pecas-desmanche',
+        ],
+        queryTemplate:
+          'edital publicação leilão {category} {state} Brasil site:gov.br OR filetype:pdf',
       },
     },
   });

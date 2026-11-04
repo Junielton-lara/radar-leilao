@@ -30,6 +30,13 @@ export class AuctionsController {
     return this.auctionsService.backfillApproximateCoordinates(2000);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Post('vehicle-categories/reclassify')
+  reclassifyVehicleCategories() {
+    return this.auctionsService.reclassifyVehicleCategories(5000);
+  }
+
   @Get('featured')
   featured() {
     return this.auctionsService.featured();

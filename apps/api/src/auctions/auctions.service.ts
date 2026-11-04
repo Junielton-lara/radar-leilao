@@ -4,20 +4,16 @@ import {
   Prisma,
   VerificationStatus,
 } from '@prisma/client';
+import {
+  VEHICLE_FOCUS_CATEGORY_SLUGS,
+  inferVehicleCategorySlug,
+} from '@lancex/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveMapCoordinates } from '../common/geo/state-centroids';
 import { BboxQueryDto } from './dto/bbox-query.dto';
 import { AuctionListQueryDto } from './dto/list-query.dto';
 
-const AUTO_FOCUS_CATEGORY_SLUGS = [
-  'veiculos',
-  'motocicletas',
-  'caminhoes',
-  'sucatas',
-  'pecas-desmanche',
-  'ferroviarios',
-  'equipamentos',
-] as const;
+const AUTO_FOCUS_CATEGORY_SLUGS = VEHICLE_FOCUS_CATEGORY_SLUGS;
 
 @Injectable()
 export class AuctionsService {
@@ -45,9 +41,6 @@ export class AuctionsService {
       },
     };
 
-    if (categoryIds?.length) {
-      where.categoryId = { in: categoryIds };
-    }
     if (states?.length) {
       where.state = { in: states };
     }
@@ -57,7 +50,7 @@ export class AuctionsService {
 
     const rows = await this.prisma.auction.findMany({
       where,
-      take: limit * 3,
+      take: limit * 5,
       orderBy: { updatedAt: 'desc' },
       include: {
         category: { select: { slug: true, name: true } },
@@ -66,8 +59,25 @@ export class AuctionsService {
       },
     });
 
+    let allowedSlugs: Set<string> | null = null;
+    if (categoryIds?.length) {
+      const cats = await this.prisma.auctionCategory.findMany({
+        where: { id: { in: categoryIds } },
+        select: { slug: true },
+      });
+      allowedSlugs = new Set(cats.map((c) => c.slug));
+    }
+
     const markers = [];
     for (const r of rows) {
+      const effectiveSlug = inferVehicleCategorySlug(
+        r.title,
+        r.description,
+        r.category?.slug,
+      );
+      if (allowedSlugs?.size) {
+        if (!effectiveSlug || !allowedSlugs.has(effectiveSlug)) continue;
+      }
       const coords = resolveMapCoordinates(
         r.state,
         r.id,
@@ -89,7 +99,7 @@ export class AuctionsService {
         latitude: coords.latitude,
         longitude: coords.longitude,
         approximate: coords.approximate,
-        categorySlug: r.category?.slug ?? null,
+        categorySlug: effectiveSlug ?? r.category?.slug ?? null,
         categoryName: r.category?.name ?? null,
         verificationStatus: r.verificationStatus,
         minimumBid: r.minimumBid?.toString() ?? null,
@@ -393,6 +403,74 @@ export class AuctionsService {
       updated += 1;
     }
     return { scanned: rows.length, updated };
+  }
+
+  /**
+   * Persiste categoryId veicular (5 slugs) a partir de título/descrição — idempotente.
+   */
+  async reclassifyVehicleCategories(limit = 5000) {
+    const categories = await this.prisma.auctionCategory.findMany({
+      where: { slug: { in: [...VEHICLE_FOCUS_CATEGORY_SLUGS] } },
+      select: { id: true, slug: true },
+    });
+    const idBySlug = new Map(categories.map((c) => [c.slug, c.id]));
+
+    const rows = await this.prisma.auction.findMany({
+      take: limit,
+      orderBy: { updatedAt: 'desc' },
+      where: {
+        verificationStatus: {
+          notIn: [VerificationStatus.ENCERRADO, VerificationStatus.CANCELADO],
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        categoryId: true,
+        category: { select: { slug: true } },
+      },
+    });
+
+    let updated = 0;
+    let unchanged = 0;
+    let skipped = 0;
+    const assignedBySlug: Record<string, number> = {};
+
+    for (const row of rows) {
+      const inferred = inferVehicleCategorySlug(
+        row.title,
+        row.description,
+        row.category?.slug,
+      );
+      if (!inferred) {
+        skipped += 1;
+        continue;
+      }
+      const targetId = idBySlug.get(inferred);
+      if (!targetId) {
+        skipped += 1;
+        continue;
+      }
+      if (row.categoryId === targetId) {
+        unchanged += 1;
+        continue;
+      }
+      await this.prisma.auction.update({
+        where: { id: row.id },
+        data: { categoryId: targetId },
+      });
+      updated += 1;
+      assignedBySlug[inferred] = (assignedBySlug[inferred] ?? 0) + 1;
+    }
+
+    return {
+      scanned: rows.length,
+      updated,
+      unchanged,
+      skipped,
+      assignedBySlug,
+    };
   }
 
   private toSummary(auction: {
