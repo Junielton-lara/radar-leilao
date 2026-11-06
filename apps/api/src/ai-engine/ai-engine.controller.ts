@@ -17,6 +17,13 @@ export class AiEngineController {
     return this.ai.getStatus();
   }
 
+  /** Enriquece leilões sem data/lance — grava no Auction para o mapa. */
+  @Roles(UserRole.ADMIN)
+  @Post('auctions/enrich-sparse')
+  enrichSparse() {
+    return this.ai.enrichSparseAuctions(25);
+  }
+
   @Roles(UserRole.ADMIN, UserRole.ANALYST)
   @Post('auctions/:id/analyze')
   analyze(@Param('id', ParseUUIDPipe) id: string) {

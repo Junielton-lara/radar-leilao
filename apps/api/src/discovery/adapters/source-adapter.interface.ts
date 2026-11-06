@@ -30,6 +30,8 @@ export type NormalizedAuctionCandidate = {
   procedureRef?: string | null;
   publicationDate?: Date | null;
   endDate?: Date | null;
+  /** Texto bruto da página (Tavily extract) — vira documento para a IA. */
+  extractedText?: string | null;
   evidence?: Record<string, unknown>;
 };
 

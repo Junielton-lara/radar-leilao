@@ -221,8 +221,18 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
         return this.documentsService.processQueued({
           documentId: String(data.documentId),
         });
-      case 'ai-analysis-queue':
-        return this.aiEngineService.runPipeline(String(data.auctionId));
+      case 'ai-analysis-queue': {
+        const auctionId = String(data.auctionId);
+        const analysis = await this.aiEngineService.runPipeline(auctionId);
+        try {
+          await this.verificationService.evaluate(auctionId);
+        } catch (err) {
+          this.logger.warn(
+            `verification after AI ${auctionId}: ${String(err)}`,
+          );
+        }
+        return analysis;
+      }
       case 'verification-queue':
         return this.verificationService.evaluate(String(data.auctionId));
       case 'geocoding-queue':

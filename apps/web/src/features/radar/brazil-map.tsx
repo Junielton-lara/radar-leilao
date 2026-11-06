@@ -411,7 +411,7 @@ export const BrazilMap = forwardRef<BrazilMapHandle, BrazilMapProps>(
           type="button"
           size="sm"
           variant="secondary"
-          className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 shadow-md md:left-auto md:right-14 md:translate-x-0"
+          className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 shadow-md max-lg:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] lg:left-auto lg:right-14 lg:translate-x-0"
           onClick={() => {
             const map = mapRef.current;
             if (map) fitBrazilView(map);

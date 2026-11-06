@@ -18,9 +18,10 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/features/auth/auth-context';
+import { MobileBottomNav } from '@/components/mobile/mobile-bottom-nav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/features/auth/auth-context';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -63,6 +64,15 @@ export function AppShell() {
     setMobileNavOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [mobileNavOpen]);
+
   const sidebar = (
     <>
       <div className="mb-6 px-2">
@@ -82,7 +92,7 @@ export function AppShell() {
             end={item.to === '/'}
             className={({ isActive }) =>
               cn(
-                'group flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                'group flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition',
                 isActive
                   ? 'bg-brand text-white shadow-lg shadow-brand/25'
                   : 'text-text-muted hover:bg-slate-100 hover:text-text',
@@ -99,7 +109,7 @@ export function AppShell() {
             to="/admin"
             className={({ isActive }) =>
               cn(
-                'group mt-2 flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                'group mt-2 flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition',
                 isActive
                   ? 'bg-brand text-white shadow-lg shadow-brand/25'
                   : 'text-text-muted hover:bg-slate-100 hover:text-text',
@@ -114,7 +124,7 @@ export function AppShell() {
       </nav>
 
       <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-        <div className="text-xs font-bold text-amber-900">💡 Dica do LanceX</div>
+        <div className="text-xs font-bold text-amber-900">Dica do LanceX</div>
         <p className="mt-1 text-[11px] leading-relaxed text-text-muted">
           Ative alertas por UF e categoria para acompanhar novas oportunidades
           assim que forem verificadas.
@@ -133,24 +143,25 @@ export function AppShell() {
   );
 
   return (
-    <div className="flex h-full min-h-screen bg-bg text-text">
-      <aside className="hidden w-[240px] shrink-0 flex-col border-r border-border bg-bg-elevated px-3 py-4 shadow-sm md:flex">
+    <div className="flex min-h-dvh bg-bg text-text">
+      <aside className="hidden w-[240px] shrink-0 flex-col border-r border-border bg-bg-elevated px-3 py-4 shadow-sm lg:flex">
         {sidebar}
       </aside>
 
       {mobileNavOpen ? (
-        <div className="fixed inset-0 z-50 md:hidden" data-testid="mobile-nav">
+        <div className="fixed inset-0 z-50 lg:hidden" data-testid="mobile-nav">
           <button
             type="button"
             className="absolute inset-0 bg-black/55 backdrop-blur-sm"
             aria-label="Fechar menu"
             onClick={() => setMobileNavOpen(false)}
           />
-          <aside className="relative z-10 flex h-full w-[min(100%,280px)] flex-col border-r border-border-subtle bg-bg-elevated px-3 py-4 shadow-2xl">
+          <aside className="relative z-10 flex h-full w-[min(100%,280px)] flex-col overflow-y-auto border-r border-border-subtle bg-bg-elevated px-3 py-4 shadow-2xl">
             <div className="mb-2 flex justify-end">
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-11 w-11"
                 aria-label="Fechar"
                 onClick={() => setMobileNavOpen(false)}
               >
@@ -163,11 +174,14 @@ export function AppShell() {
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center gap-2 border-b border-border bg-bg-elevated px-3 shadow-sm sm:h-[4.25rem] sm:gap-3 md:px-6">
+        <header
+          className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-bg-elevated/95 px-3 shadow-sm backdrop-blur sm:h-16 sm:gap-3 sm:px-5 lg:px-6"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="h-11 w-11 lg:hidden"
             aria-label="Abrir menu"
             onClick={() => setMobileNavOpen(true)}
             data-testid="mobile-menu-button"
@@ -178,8 +192,9 @@ export function AppShell() {
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
             <Input
-              className="h-10 pl-10 pr-3 sm:h-11 sm:pr-12"
-              placeholder="Buscar leilões em todo o Brasil..."
+              className="h-11 pl-10 pr-3 sm:pr-12"
+              placeholder="Buscar leilões..."
+              inputMode="search"
               data-testid="global-search"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -202,7 +217,7 @@ export function AppShell() {
               <NavLink
                 key={link.label}
                 to={link.to}
-                className="hidden items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium text-text-muted transition hover:bg-white/5 hover:text-text lg:inline-flex"
+                className="hidden items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium text-text-muted transition hover:bg-slate-100 hover:text-text xl:inline-flex"
               >
                 <link.icon className="h-3.5 w-3.5" />
                 {link.label}
@@ -212,7 +227,7 @@ export function AppShell() {
             {isAdmin ? (
               <NavLink
                 to="/admin"
-                className="hidden items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium text-text-muted transition hover:bg-white/5 hover:text-text lg:inline-flex"
+                className="hidden items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium text-text-muted transition hover:bg-slate-100 hover:text-text xl:inline-flex"
               >
                 <Shield className="h-3.5 w-3.5" />
                 Admin
@@ -234,6 +249,7 @@ export function AppShell() {
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-11 w-11"
                 aria-label="Sair"
                 onClick={() => void logout().then(() => navigate('/login'))}
                 data-testid="logout-button"
@@ -244,14 +260,17 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-auto p-3 md:p-5">
+        <main
+          className={cn(
+            'min-h-0 flex-1 overflow-auto px-3 py-3 sm:px-5 sm:py-5 lg:px-6',
+            'pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-6',
+          )}
+        >
           <Outlet />
         </main>
-
-        <footer className="border-t border-border-subtle px-4 py-2 text-center text-[10px] text-text-dim md:hidden">
-          LanceX · Radar Inteligente de Leilões · by +Gestor
-        </footer>
       </div>
+
+      <MobileBottomNav />
     </div>
   );
 }

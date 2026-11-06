@@ -130,7 +130,7 @@ export function RadarPage() {
 
   return (
     <div
-      className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-2 md:min-h-[calc(100dvh-6.5rem)]"
+      className="flex min-h-[calc(100dvh-11rem)] flex-col gap-2 lg:min-h-[calc(100dvh-6.5rem)]"
       data-testid="radar-page"
     >
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -179,7 +179,7 @@ export function RadarPage() {
         </div>
       ) : null}
 
-      <div className="relative min-h-[min(78vh,calc(100dvh-14rem))] w-full flex-1 basis-0">
+      <div className="relative min-h-[min(70vh,calc(100dvh-18rem))] w-full flex-1 basis-0 lg:min-h-[min(78vh,calc(100dvh-14rem))]">
         <div className="absolute inset-0 z-0">
           <BrazilMap
             ref={mapRef}
@@ -195,7 +195,7 @@ export function RadarPage() {
           categories={categoriesQuery.data ?? []}
         />
         {selectedMarker ? (
-          <div className="absolute bottom-3 right-3 z-10 w-[min(100%,340px)]">
+          <div className="absolute bottom-3 right-3 z-20 w-[min(100%,340px)] max-lg:bottom-[calc(0.75rem+env(safe-area-inset-bottom))]">
             <MarkerSummary
               marker={selectedMarker}
               onClose={() => setSelectedMarker(null)}

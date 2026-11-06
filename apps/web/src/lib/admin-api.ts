@@ -424,4 +424,13 @@ export const adminApi = {
       skipped: number;
       assignedBySlug: Record<string, number>;
     }>('/auctions/vehicle-categories/reclassify', { method: 'POST' }),
+
+  /** IA preenche datas/lance/lotes nos leilões ainda vazios (mapa). */
+  enrichSparseAuctions: () =>
+    adminRequest<{
+      scanned: number;
+      ok: number;
+      failed: number;
+      results: Array<{ id: string; ok: boolean; error?: string }>;
+    }>('/ai/auctions/enrich-sparse', { method: 'POST' }),
 };

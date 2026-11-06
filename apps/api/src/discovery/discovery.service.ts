@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit, forwardRef } from '@nestjs/common';
 import {
   BrazilianState,
   Prisma,
@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { BRAZILIAN_STATES } from '@lancex/shared';
 import { IntelligenceService } from '../intelligence/intelligence.service';
+import { JobsService } from '../jobs/jobs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TavilyService } from '../tavily/tavily.service';
 import { canonicalUrl, isLikelyDuplicate } from './dedupe';
@@ -41,6 +42,8 @@ export class DiscoveryService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly tavily: TavilyService,
     private readonly intelligence: IntelligenceService,
+    @Inject(forwardRef(() => JobsService))
+    private readonly jobs: JobsService,
   ) {}
 
   onModuleInit() {
@@ -312,6 +315,18 @@ export class DiscoveryService implements OnModuleInit {
         where: { id: existingByUrl.id },
         data: { lastCheckedAt: new Date() },
       });
+      if (candidate.extractedText?.trim()) {
+        await this.ensurePageExtractDocument(
+          existingByUrl.id,
+          candidate.originalUrl,
+          candidate.extractedText,
+        );
+      }
+      const needsEnrichment =
+        !existingByUrl.endDate || existingByUrl.minimumBid == null;
+      if (needsEnrichment) {
+        void this.enqueueAiAnalysis(existingByUrl.id);
+      }
       return existingByUrl;
     }
 
@@ -386,7 +401,7 @@ export class DiscoveryService implements OnModuleInit {
       null,
     );
 
-    return this.prisma.auction.create({
+    const created = await this.prisma.auction.create({
       data: {
         title: stripNullBytes(candidate.title),
         slug,
@@ -422,8 +437,61 @@ export class DiscoveryService implements OnModuleInit {
             evidenceStatus: 'collected',
           },
         },
+        documents: candidate.extractedText?.trim()
+          ? {
+              create: {
+                documentType: 'page_extract',
+                title: 'Texto extraído da página (Tavily)',
+                originalUrl: candidate.originalUrl,
+                extractedText: stripNullBytes(
+                  candidate.extractedText.slice(0, 50000),
+                ),
+              },
+            }
+          : undefined,
       },
     });
+
+    void this.enqueueAiAnalysis(created.id);
+    return created;
+  }
+
+  private async ensurePageExtractDocument(
+    auctionId: string,
+    originalUrl: string,
+    extractedText: string,
+  ) {
+    const existing = await this.prisma.auctionDocument.findFirst({
+      where: { auctionId, documentType: 'page_extract' },
+      select: { id: true },
+    });
+    if (existing) {
+      await this.prisma.auctionDocument.update({
+        where: { id: existing.id },
+        data: {
+          extractedText: stripNullBytes(extractedText.slice(0, 50000)),
+          originalUrl,
+        },
+      });
+      return;
+    }
+    await this.prisma.auctionDocument.create({
+      data: {
+        auctionId,
+        documentType: 'page_extract',
+        title: 'Texto extraído da página (Tavily)',
+        originalUrl,
+        extractedText: stripNullBytes(extractedText.slice(0, 50000)),
+      },
+    });
+  }
+
+  private enqueueAiAnalysis(auctionId: string) {
+    return this.jobs
+      .enqueue('ai-analysis-queue', { auctionId, type: 'analyze' })
+      .catch((err) =>
+        this.logger.warn(`AI enqueue ${auctionId}: ${String(err)}`),
+      );
   }
 
   listRuns(take = 20) {

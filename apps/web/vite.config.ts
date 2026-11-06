@@ -15,21 +15,26 @@ export default defineConfig({
         name: 'LanceX — Radar Inteligente de Leilões',
         short_name: 'LanceX',
         description: 'Radar Inteligente de Leilões do Brasil · by +Gestor',
-        theme_color: '#07111F',
-        background_color: '#07111F',
+        theme_color: '#E31B23',
+        background_color: '#eef1f6',
         display: 'standalone',
+        orientation: 'portrait-primary',
         start_url: '/',
+        scope: '/',
         lang: 'pt-BR',
+        categories: ['business', 'finance', 'productivity'],
         icons: [
           {
             src: '/icons/icon-192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any',
           },
           {
             src: '/icons/icon-512.png',
             sizes: '512x512',
             type: 'image/png',
+            purpose: 'any',
           },
           {
             src: '/icons/icon-512.png',
@@ -41,7 +46,32 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        globPatterns: ['**/*.{js,css,html,ico,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,png,woff2,webmanifest}'],
+        navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lancex-fonts',
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/icons/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lancex-icons',
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+            },
+          },
+        ],
       },
       devOptions: {
         enabled: false,

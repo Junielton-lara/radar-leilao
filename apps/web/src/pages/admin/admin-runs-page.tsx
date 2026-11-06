@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Play, RefreshCw, Tags } from 'lucide-react';
+import { BrainCircuit, Play, RefreshCw, Tags } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EndpointFallback } from '@/features/admin/endpoint-fallback';
 import { adminApi } from '@/lib/admin-api';
@@ -30,6 +30,14 @@ export function AdminRunsPage() {
 
   const reclassifyMutation = useMutation({
     mutationFn: () => adminApi.reclassifyVehicleCategories(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['radar-indicators'] });
+      void queryClient.invalidateQueries({ queryKey: ['auctions-bbox'] });
+    },
+  });
+
+  const enrichMutation = useMutation({
+    mutationFn: () => adminApi.enrichSparseAuctions(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['radar-indicators'] });
       void queryClient.invalidateQueries({ queryKey: ['auctions-bbox'] });
@@ -69,6 +77,18 @@ export function AdminRunsPage() {
           </Button>
           <Button
             size="sm"
+            variant="secondary"
+            onClick={() => enrichMutation.mutate()}
+            disabled={enrichMutation.isPending}
+            title="Usa créditos da API OpenAI"
+          >
+            <BrainCircuit className="h-3.5 w-3.5" />
+            {enrichMutation.isPending
+              ? 'IA preenchendo…'
+              : 'IA: preencher datas/lances'}
+          </Button>
+          <Button
+            size="sm"
             onClick={() => startMutation.mutate()}
             disabled={startMutation.isPending}
           >
@@ -88,6 +108,19 @@ export function AdminRunsPage() {
           Reclassificação concluída · {reclassifyMutation.data.scanned}{' '}
           analisados · {reclassifyMutation.data.updated} atualizados ·{' '}
           {reclassifyMutation.data.unchanged} já corretos
+        </div>
+      ) : null}
+
+      {enrichMutation.isError ? (
+        <div className="rounded-xl border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+          {(enrichMutation.error as Error).message}
+        </div>
+      ) : null}
+      {enrichMutation.isSuccess && enrichMutation.data ? (
+        <div className="rounded-xl border border-success/40 bg-success/10 px-3 py-2 text-xs text-success">
+          IA · {enrichMutation.data.ok}/{enrichMutation.data.scanned}{' '}
+          enriquecidos · {enrichMutation.data.failed} falhas (crédito/API ou
+          página sem dados)
         </div>
       ) : null}
 

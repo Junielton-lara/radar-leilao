@@ -124,17 +124,23 @@ export class TavilyAdapter implements SourceAdapter {
     extracted?: ExtractedContent,
   ): NormalizedAuctionCandidate | null {
     if (!item.url) return null;
+    const pageText =
+      extracted?.status === 'ok' && extracted.text?.trim()
+        ? extracted.text.trim()
+        : null;
     return {
       title: item.title?.trim() || item.url,
-      description: item.snippet ?? extracted?.text?.slice(0, 2000),
+      description: item.snippet ?? pageText?.slice(0, 2000),
       originalUrl: item.url,
       canonicalUrl: normalizeCanonicalUrl(item.url),
       state: item.state ?? null,
       categorySlug: item.category ?? null,
+      extractedText: pageText?.slice(0, 50000) ?? null,
       evidence: {
         adapter: 'tavily',
         snippet: item.snippet,
-        extracted: extracted?.status === 'ok',
+        extracted: Boolean(pageText),
+        extractedChars: pageText?.length ?? 0,
       },
     };
   }

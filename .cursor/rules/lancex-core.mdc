@@ -1,0 +1,19 @@
+---
+description: Regras de implementação do LanceX. Mobile/PWA first no frontend.
+alwaysApply: true
+---
+
+# LanceX
+
+Antes de uma mudança que cruze módulos, abra a skill correspondente em `.cursor/skills/`. Não leia a pasta inteira por padrão.
+
+- Inspecione o arquivo existente antes de criar outro. Não invente endpoint, tabela, componente ou variável de ambiente.
+- Mantenha NestJS + React/Vite + Prisma + TanStack Query + shared package.
+- Preserve dados e contratos. Sem refatoração fora do pedido.
+- UI nova ou alterada precisa caber em tela estreita (320px+) com os componentes de `apps/web/src/components/` e safe area / bottom nav do shell.
+- Em mudanças de layout, aplicar `.cursor/skills/lancex-mobile-ux/SKILL.md`.
+- Autorize no backend. Esconder botão não basta.
+- Trate carregamento, vazio e erro. Não declare sucesso sem o comando ou o fluxo que você rodou.
+- Rode o build/lint/test do pacote que mudou. Relate falha.
+- Não escreva senha, JWT, chave OpenAI/Tavily ou cookie em código, log novo ou documentação.
+- Se faltar uma decisão de negócio que o código não responde, pergunte. Não invente a regra.
